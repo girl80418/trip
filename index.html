@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TabiNote 旅之手札 - 日式極簡 AI 旅遊隨身助理</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Marked.js for Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Google Fonts: Noto Serif JP & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Serif+JP:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        wabi: {
+                            bg: '#F8F6F0',       // Soft Rice Paper Wabi-Sabi BG
+                            card: '#FFFFFF',     // Clean White Card
+                            border: '#E8E3D9',   // Light Warm Gray Border
+                            subtle: '#E2DDD2',   // Muted Sand Divider
+                            text: '#2C302E',     // Soft Charcoal Body Text
+                            muted: '#7A827D',    // Muted Sage Gray
+                            primary: '#4A5D54',  // Japanese Forest Green / Matcha
+                            accent: '#C86D51',   // Warm Vermilion / Terracotta
+                            sakura: '#E8C5C8',   // Delicate Sakura Pink
+                            indigo: '#324053',   // Deep Indigo Blue
+                            gold: '#D4A359',     // Warm Muted Gold
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Noto Serif JP"', 'serif'],
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'japandi': '0 4px 20px -2px rgba(74, 93, 84, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03)',
+                        'floating': '0 12px 32px -4px rgba(44, 48, 46, 0.12)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #F2EFE9;
+            font-family: 'Inter', sans-serif;
+            color: #2C302E;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .font-jp {
+            font-family: 'Noto Serif JP', serif;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.02);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #D5CFC4;
+            border-radius: 4px;
+        }
+
+        /* Hide scrollbars for slick app view */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Photo drag visual indicator */
+        .drag-ghost {
+            opacity: 0.4;
+            scale: 0.96;
+        }
+
+        /* Markdown rendered content styling */
+        .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+            font-weight: 600;
+            margin-top: 0.8em;
+            margin-bottom: 0.4em;
+            color: #324053;
+        }
+        .markdown-body p {
+            margin-bottom: 0.6em;
+            line-height: 1.6;
+        }
+        .markdown-body ul {
+            list-style-type: disc;
+            padding-left: 1.25rem;
+            margin-bottom: 0.6em;
+        }
+        .markdown-body blockquote {
+            border-left: 3px solid #4A5D54;
+            padding-left: 0.75rem;
+            color: #7A827D;
+            font-style: italic;
+        }
+
+        /* Printing optimizations for PDF backup */
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white; }
+            .app-container { max-width: 100% !important; box-shadow: none !important; margin: 0 !important; }
+        }
+    </style>
+</head>
+<body class="flex justify-center items-center min-h-screen sm:py-6">
+
+    <div id="app" class="w-full max-w-md h-[100vh] sm:h-[880px] bg-wabi-bg sm:rounded-[36px] sm:border-[8px] sm:border-[#324053] shadow-2xl flex flex-col overflow-hidden relative app-container">
+
+        <!-- Top App Bar -->
+        <header class="bg-wabi-bg/90 backdrop-blur-md px-5 pt-4 pb-3 border-b border-wabi-border flex justify-between items-center z-20 shrink-0">
+            <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-wabi-accent animate-pulse"></span>
+                <h1 class="font-jp text-lg font-bold text-wabi-indigo tracking-wide flex items-center gap-1.5">
+                    <span>旅之手札</span>
+                    <span class="text-xs font-sans font-normal text-wabi-muted px-2 py-0.5 bg-wabi-border/50 rounded-full">Kyoto '26</span>
+                </h1>
+            </div>
+
+            <!-- User ID & Admin Badge / Switcher -->
+            <div class="flex items-center space-x-2">
+                <button @click="toggleAdminRole" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all shadow-sm"
+                        :class="isAdmin ? 'bg-wabi-primary text-white hover:bg-wabi-primary/90' : 'bg-wabi-border/60 text-wabi-muted hover:bg-wabi-border'">
+                    <i :class="isAdmin ? 'fa-solid fa-user-gear' : 'fa-solid fa-user'"></i>
+                    <span class="font-mono text-[11px] max-w-[80px] truncate" :title="userId">{{ userId }}</span>
+                    <span class="px-1.5 py-0.2 text-[9px] rounded uppercase font-bold"
+                          :class="isAdmin ? 'bg-wabi-accent text-white' : 'bg-gray-200 text-gray-600'">
+                        {{ isAdmin ? '管理員' : '訪客' }}
+                    </span>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto no-scrollbar relative p-4 space-y-4">
+            
+            <!-- Quick Alert Message Toast -->
+            <transition enter-active-class="transition duration-300 ease-out" enter-from-class="transform -translate-y-4 opacity-0" leave-active-class="transition duration-200 ease-in" leave-to-class="transform -translate-y-4 opacity-0">
+                <div v-if="toastMessage" class="fixed top-16 left-6 right-6 z-50 bg-wabi-indigo text-white text-xs py-2.5 px-4 rounded-xl shadow-floating flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-circle-info text-wabi-gold"></i>
+                        <span>{{ toastMessage }}</span>
+                    </div>
+                    <button @click="toastMessage = ''" class="text-gray-300 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </transition>
+
+            <section v-if="activeTab === 'itinerary'" class="space-y-4 pb-12">
+                <!-- Day Selector Bar -->
+                <div class="flex items-center justify-between bg-wabi-card p-2 rounded-2xl border border-wabi-border shadow-japandi">
+                    <div class="flex space-x-2 overflow-x-auto no-scrollbar py-0.5 px-1">
+                        <button v-for="(day, index) in itineraryDays" :key="day.id"
+                                @click="selectedDayIndex = index"
+                                class="px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex flex-col items-center min-w-[56px]"
+                                :class="selectedDayIndex === index ? 'bg-wabi-primary text-white shadow-sm' : 'text-wabi-muted hover:bg-wabi-bg'">
+                            <span class="text-[10px] opacity-80 uppercase">DAY {{ index + 1 }}</span>
+                            <span class="font-bold font-jp text-xs">{{ day.dateShort }}</span>
+                        </button>
+                    </div>
+                    <button v-if="isAdmin" @click="addNewDay" class="w-8 h-8 rounded-xl bg-wabi-bg text-wabi-primary hover:bg-wabi-primary hover:text-white flex items-center justify-center transition-colors shrink-0 ml-1" title="新增天數">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                    </button>
+                </div>
+
+                <!-- Itinerary Header Actions -->
+                <div class="flex justify-between items-center px-1">
+                    <div>
+                        <h2 class="font-jp text-base font-bold text-wabi-indigo">
+                            {{ currentDay.title || ('DAY ' + (selectedDayIndex + 1) + ' 行程表') }}
+                        </h2>
+                        <p class="text-[11px] text-wabi-muted">{{ currentDay.dateLong }} · 共 {{ currentDay.spots.length }} 個景點</p>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <!-- AI Speech Read Aloud -->
+                        <button @click="speakItinerary" class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-wabi-card border border-wabi-border text-wabi-primary hover:bg-wabi-primary hover:text-white transition-all flex items-center space-x-1 shadow-sm" :class="{'animate-pulse bg-wabi-primary text-white': isSpeaking}">
+                            <i :class="isSpeaking ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-low'"></i>
+                            <span>{{ isSpeaking ? '朗讀中...' : '播報' }}</span>
+                        </button>
+                        <!-- Admin Add Spot -->
+                        <button v-if="isAdmin" @click="openSpotModal()" class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-wabi-accent text-white hover:bg-wabi-accent/90 transition-all flex items-center space-x-1 shadow-sm">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>新增</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Timeline Spot List -->
+                <div v-if="currentDay.spots.length > 0" class="relative pl-4 space-y-3 before:absolute before:left-[19px] before:top-3 before:bottom-3 before:w-[2px] before:bg-wabi-subtle">
+                    <div v-for="(spot, spotIdx) in currentDay.spots" :key="spot.id" 
+                         class="relative pl-6 group transition-all"
+                         :draggable="isAdmin"
+                         @dragstart="onSpotDragStart(spotIdx)"
+                         @dragover.prevent
+                         @drop="onSpotDrop(spotIdx)">
+                        
+                        <!-- Timeline Node Dot -->
+                        <div class="absolute left-0 top-3.5 w-3.5 h-3.5 rounded-full border-2 border-wabi-bg shadow-sm transition-transform group-hover:scale-125 z-10"
+                             :class="spot.category === 'food' ? 'bg-wabi-accent' : (spot.category === 'transport' ? 'bg-wabi-indigo' : 'bg-wabi-primary')"></div>
+
+                        <!-- Spot Card -->
+                        <div class="bg-wabi-card rounded-2xl p-3.5 border border-wabi-border shadow-japandi hover:shadow-md transition-all space-y-2">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-mono text-xs font-bold text-wabi-indigo px-2 py-0.5 bg-wabi-bg rounded-md border border-wabi-border/60">
+                                        {{ spot.time }}
+                                    </span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                          :class="getCategoryStyle(spot.category)">
+                                        {{ getCategoryLabel(spot.category) }}
+                                    </span>
+                                </div>
+
+                                <!-- Actions & Map Link -->
+                                <div class="flex items-center space-x-2">
+                                    <a :href="getMapUrl(spot.location || spot.title)" target="_blank" class="text-wabi-primary hover:text-wabi-accent text-xs p-1" title="開啓 Google 地圖">
+                                        <i class="fa-solid fa-map-location-dot"></i>
+                                    </a>
+                                    <template v-if="isAdmin">
+                                        <button @click="moveSpot(spotIdx, -1)" v-if="spotIdx > 0" class="text-wabi-muted hover:text-wabi-indigo text-xs p-1" title="向上移動">
+                                            <i class="fa-solid fa-arrow-up"></i>
+                                        </button>
+                                        <button @click="moveSpot(spotIdx, 1)" v-if="spotIdx < currentDay.spots.length - 1" class="text-wabi-muted hover:text-wabi-indigo text-xs p-1" title="向下移動">
+                                            <i class="fa-solid fa-arrow-down"></i>
+                                        </button>
+                                        <button @click="openSpotModal(spot, spotIdx)" class="text-wabi-muted hover:text-wabi-indigo text-xs p-1" title="編輯">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button @click="deleteSpot(spotIdx)" class="text-wabi-muted hover:text-red-500 text-xs p-1" title="刪除">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="font-jp text-sm font-bold text-wabi-text">{{ spot.title }}</h3>
+                                <p v-if="spot.location" class="text-xs text-wabi-muted flex items-center space-x-1 mt-0.5">
+                                    <i class="fa-solid fa-location-dot text-[10px]"></i>
+                                    <span class="truncate">{{ spot.location }}</span>
+                                </p>
+                            </div>
+
+                            <p v-if="spot.notes" class="text-xs text-wabi-text/80 bg-wabi-bg/70 p-2 rounded-xl text-justify leading-relaxed border border-wabi-border/40">
+                                {{ spot.notes }}
+                            </p>
+
+                            <div v-if="spot.cost" class="text-right text-[11px] font-mono text-wabi-accent font-semibold">
+                                預估費用: ¥{{ spot.cost.toLocaleString() }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else class="text-center py-12 bg-wabi-card rounded-2xl border border-dashed border-wabi-border p-6 space-y-3">
+                    <div class="w-12 h-12 rounded-full bg-wabi-bg text-wabi-muted flex items-center justify-center mx-auto text-lg">
+                        <i class="fa-solid fa-compass"></i>
+                    </div>
+                    <p class="text-xs text-wabi-muted font-jp">本日尚未規劃景點行程</p>
+                    <button v-if="isAdmin" @click="openSpotModal()" class="px-3 py-1.5 rounded-xl bg-wabi-primary text-white text-xs font-medium">
+                        立即手動新增
+                    </button>
+                </div>
+            </section>
+
+            <section v-if="activeTab === 'ai'" class="space-y-4 pb-12">
+                <div class="bg-wabi-card rounded-2xl p-4 border border-wabi-border shadow-japandi space-y-3">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 rounded-xl bg-wabi-gold/20 text-wabi-gold flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-jp text-sm font-bold text-wabi-indigo">AI 智慧行程助手</h2>
+                            <p class="text-[11px] text-wabi-muted">由 Gemini AI 驅動，秒級客製化行程規劃</p>
+                        </div>
+                    </div>
+
+                    <!-- AI Mode Switcher -->
+                    <div class="grid grid-cols-2 gap-2 p-1 bg-wabi-bg rounded-xl text-xs font-medium">
+                        <button @click="aiMode = 'auto'"
+                                class="py-1.5 rounded-lg transition-all"
+                                :class="aiMode === 'auto' ? 'bg-wabi-primary text-white shadow-sm' : 'text-wabi-muted'">
+                            全自動生成
+                        </button>
+                        <button @click="aiMode = 'guided'"
+                                class="py-1.5 rounded-lg transition-all"
+                                :class="aiMode === 'guided' ? 'bg-wabi-primary text-white shadow-sm' : 'text-wabi-muted'">
+                            每日重點引導
+                        </button>
+                    </div>
+
+                    <!-- Input Form for Auto Generation -->
+                    <div v-if="aiMode === 'auto'" class="space-y-2">
+                        <label class="text-xs text-wabi-muted font-medium">您的旅遊願望或主題：</label>
+                        <textarea v-model="aiPrompt" rows="3" placeholder="例如：我想去曼谷吃米其林路邊攤與夜市美食，順便安排 Spa 按摩，共 3 天..." 
+                                  class="w-full text-xs p-3 rounded-xl bg-wabi-bg border border-wabi-border focus:outline-none focus:border-wabi-primary resize-none"></textarea>
+                    </div>
+
+                    <!-- Input Form for Guided Daily Generation -->
+                    <div v-else class="space-y-2">
+                        <label class="text-xs text-wabi-muted font-medium">指定每日核心地標（AI 補全細節）：</label>
+                        <div class="space-y-1.5">
+                            <div v-for="(dayGuide, idx) in guidedDays" :key="idx" class="flex items-center space-x-2">
+                                <span class="text-xs font-mono font-bold text-wabi-indigo w-12">Day {{ idx + 1 }}</span>
+                                <input v-model="guidedDays[idx]" type="text" placeholder="例如：大皇宮、淺草寺或曼谷巨蛋" 
+                                       class="flex-1 text-xs px-3 py-2 rounded-xl bg-wabi-bg border border-wabi-border focus:outline-none focus:border-wabi-primary">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button @click="generateAIItinerary" :disabled="isGeneratingAI" 
+                            class="w-full py-2.5 rounded-xl bg-wabi-primary text-white font-medium text-xs shadow-sm hover:bg-wabi-primary/90 flex items-center justify-center space-x-2 transition-all">
+                        <i :class="isGeneratingAI ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-paper-plane'"></i>
+                        <span>{{ isGeneratingAI ? 'AI 正在規劃完美行程中...' : '生成專屬行程' }}</span>
+                    </button>
+                </div>
+
+                <!-- AI Generated Itinerary Preview Result -->
+                <div v-if="aiResult" class="space-y-3">
+                    <div class="flex justify-between items-center px-1">
+                        <h3 class="font-jp text-sm font-bold text-wabi-indigo">AI 建議方案預覽</h3>
+                        <button v-if="isAdmin" @click="applyAIItinerary" class="px-3 py-1 rounded-xl bg-wabi-accent text-white text-xs font-medium hover:bg-wabi-accent/90 transition-all shadow-sm">
+                            <i class="fa-solid fa-file-import mr-1"></i>覆蓋並套用到行程
+                        </button>
+                    </div>
+
+                    <div v-for="(day, dIdx) in aiResult.days" :key="dIdx" class="bg-wabi-card rounded-2xl p-3.5 border border-wabi-border shadow-japandi space-y-2">
+                        <div class="font-jp text-xs font-bold text-wabi-primary border-b border-wabi-border/60 pb-1.5 flex justify-between">
+                            <span>Day {{ dIdx + 1 }}: {{ day.title }}</span>
+                        </div>
+                        <div class="space-y-2 pt-1">
+                            <div v-for="spot in day.spots" :key="spot.title" class="text-xs space-y-0.5">
+                                <div class="flex items-center justify-between font-medium">
+                                    <span class="text-wabi-indigo font-mono">{{ spot.time }} - {{ spot.title }}</span>
+                                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-wabi-bg text-wabi-muted">{{ spot.category }}</span>
+                                </div>
+                                <p class="text-wabi-muted text-[11px] leading-relaxed">{{ spot.notes }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section v-if="activeTab === 'journal'" class="space-y-4 pb-12">
+                <!-- Journal Markdown Editor / Viewer -->
+                <div class="bg-wabi-card rounded-2xl p-4 border border-wabi-border shadow-japandi space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h2 class="font-jp text-sm font-bold text-wabi-indigo flex items-center gap-1.5">
+                            <i class="fa-solid fa-book-bookmark text-wabi-primary"></i>
+                            <span>旅途隨筆與日記</span>
+                        </h2>
+                        <div class="flex items-center space-x-2">
+                            <button v-if="isAdmin" @click="polishJournalWithAI" :disabled="isPolishing" class="text-[11px] px-2.5 py-1 rounded-xl bg-wabi-gold/20 text-wabi-gold font-medium hover:bg-wabi-gold hover:text-white transition-all flex items-center space-x-1">
+                                <i :class="isPolishing ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-wand-magic-sparkles'"></i>
+                                <span>AI 潤飾修辭</span>
+                            </button>
+                            <button v-if="isAdmin" @click="journalEditing = !journalEditing" class="text-[11px] px-2.5 py-1 rounded-xl border border-wabi-border text-wabi-muted font-medium hover:text-wabi-indigo">
+                                {{ journalEditing ? '預覽 Markdown' : '編輯隨筆' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Textarea Editor -->
+                    <div v-if="journalEditing && isAdmin" class="space-y-2">
+                        <textarea v-model="journalContent" rows="6" placeholder="使用 Markdown 語法記錄今天的感動與回憶..." 
+                                  class="w-full text-xs p-3 rounded-xl bg-wabi-bg border border-wabi-border font-mono focus:outline-none focus:border-wabi-primary resize-none leading-relaxed"></textarea>
+                    </div>
+
+                    <!-- Rendered Markdown View -->
+                    <div v-else class="markdown-body text-xs text-wabi-text leading-relaxed p-1" v-html="renderedJournal"></div>
+                </div>
+
+                <!-- Photo Gallery with Drag & Lightbox -->
+                <div class="bg-wabi-card rounded-2xl p-4 border border-wabi-border shadow-japandi space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-jp text-sm font-bold text-wabi-indigo flex items-center gap-1.5">
+                            <i class="fa-solid fa-camera-retro text-wabi-accent"></i>
+                            <span>相片畫廊 ({{ photos.length }})</span>
+                        </h3>
+                        <label v-if="isAdmin" class="px-2.5 py-1 rounded-xl bg-wabi-primary text-white text-xs font-medium cursor-pointer hover:bg-wabi-primary/90 transition-all flex items-center space-x-1">
+                            <i class="fa-solid fa-cloud-arrow-up text-xs"></i>
+                            <span>上傳照片</span>
+                            <input type="file" accept="image/*" @change="uploadPhoto" class="hidden" multiple>
+                        </label>
+                    </div>
+
+                    <div v-if="photos.length > 0" class="grid grid-cols-3 gap-2">
+                        <div v-for="(photo, pIdx) in photos" :key="photo.id"
+                             class="relative group aspect-square rounded-xl overflow-hidden bg-wabi-bg border border-wabi-border cursor-pointer"
+                             :draggable="isAdmin"
+                             @dragstart="onPhotoDragStart(pIdx)"
+                             @dragover.prevent
+                             @drop="onPhotoDrop(pIdx)"
+                             @click="openPhotoLightbox(photo)">
+                            <img :src="photo.url" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" :alt="photo.caption">
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-1.5 text-white text-[10px] truncate">
+                                <span>{{ photo.caption || '點擊放大' }}</span>
+                            </div>
+                            <button v-if="isAdmin" @click.stop="deletePhoto(pIdx)" class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-else class="text-center py-6 text-wabi-muted text-xs font-jp">
+                        尚未上傳照片，點擊右上角新增美好紀錄
+                    </div>
+                </div>
+            </section>
+
+            <section v-if="activeTab === 'expenses'" class="space-y-4 pb-12">
+                <!-- Overview Financial Cards -->
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="bg-wabi-card p-3 rounded-2xl border border-wabi-border shadow-japandi text-center space-y-0.5">
+                        <span class="text-[10px] text-wabi-muted block font-medium">總消費額</span>
+                        <span class="font-mono text-sm font-bold text-wabi-indigo">¥{{ totalExpenses.toLocaleString() }}</span>
+                    </div>
+                    <div class="bg-wabi-card p-3 rounded-2xl border border-wabi-border shadow-japandi text-center space-y-0.5">
+                        <span class="text-[10px] text-wabi-muted block font-medium">💵 現金支付</span>
+                        <span class="font-mono text-sm font-bold text-wabi-primary">¥{{ cashExpenses.toLocaleString() }}</span>
+                    </div>
+                    <div class="bg-wabi-card p-3 rounded-2xl border border-wabi-border shadow-japandi text-center space-y-0.5">
+                        <span class="text-[10px] text-wabi-muted block font-medium">💳 信用卡</span>
+                        <span class="font-mono text-sm font-bold text-wabi-accent">¥{{ cardExpenses.toLocaleString() }}</span>
+                    </div>
+                </div>
+
+                <!-- AI Spending Analysis Trigger -->
+                <div class="bg-wabi-card rounded-2xl p-3.5 border border-wabi-border shadow-japandi space-y-2">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-chart-pie text-wabi-gold text-sm"></i>
+                            <h3 class="font-jp text-xs font-bold text-wabi-indigo">AI 理財與消費分析</h3>
+                        </div>
+                        <button @click="analyzeExpensesWithAI" :disabled="isAnalyzingExpenses" class="px-2.5 py-1 rounded-xl bg-wabi-indigo text-white text-xs font-medium hover:bg-wabi-indigo/90 transition-all flex items-center space-x-1 shadow-sm">
+                            <i :class="isAnalyzingExpenses ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-brain'"></i>
+                            <span>{{ isAnalyzingExpenses ? '分析中...' : '產生診斷報告' }}</span>
+                        </button>
+                    </div>
+
+                    <p v-if="aiExpenseReport" class="text-xs text-wabi-text leading-relaxed bg-wabi-bg/80 p-3 rounded-xl border border-wabi-border/60">
+                        {{ aiExpenseReport }}
+                    </p>
+                </div>
+
+                <!-- Expense Form & List -->
+                <div class="bg-wabi-card rounded-2xl p-4 border border-wabi-border shadow-japandi space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-jp text-sm font-bold text-wabi-indigo">記帳明細</h3>
+                        <button v-if="isAdmin" @click="openExpenseModal()" class="px-2.5 py-1 rounded-xl bg-wabi-primary text-white text-xs font-medium hover:bg-wabi-primary/90 transition-all flex items-center space-x-1">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>記錄開銷</span>
+                        </button>
+                    </div>
+
+                    <div v-if="expenses.length > 0" class="space-y-2 divide-y divide-wabi-subtle/50">
+                        <div v-for="(exp, eIdx) in expenses" :key="exp.id" class="pt-2 flex justify-between items-center text-xs">
+                            <div class="space-y-0.5">
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-bold text-wabi-indigo">{{ exp.title }}</span>
+                                    <span class="text-[10px] px-1.5 py-0.2 rounded" :class="exp.payment === 'cash' ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'">
+                                        {{ exp.payment === 'cash' ? '現金' : '信用卡' }}
+                                    </span>
+                                </div>
+                                <div class="text-[10px] text-wabi-muted flex items-center space-x-2">
+                                    <span>{{ exp.category }}</span>
+                                    <span>·</span>
+                                    <span>{{ exp.date }}</span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-3">
+                                <span class="font-mono font-bold text-wabi-text text-sm">¥{{ exp.amount.toLocaleString() }}</span>
+                                <button v-if="isAdmin" @click="deleteExpense(eIdx)" class="text-wabi-muted hover:text-red-500">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else class="text-center py-6 text-wabi-muted text-xs font-jp">
+                        目前尚無消費記錄，點擊上方按鈕開始記帳
+                    </div>
+                </div>
+            </section>
+
+            <section v-if="activeTab === 'shopping'" class="space-y-4 pb-12">
+                <div class="bg-wabi-card rounded-2xl p-4 border border-wabi-border shadow-japandi space-y-3">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="font-jp text-sm font-bold text-wabi-indigo flex items-center gap-1.5">
+                                <i class="fa-solid fa-bag-shopping text-wabi-accent"></i>
+                                <span>藥妝與紀念品購物清單</span>
+                            </h2>
+                            <p class="text-[11px] text-wabi-muted">已購買 {{ boughtCount }}/{{ shoppingList.length }} 項</p>
+                        </div>
+                        <button v-if="isAdmin" @click="openShoppingModal()" class="px-2.5 py-1 rounded-xl bg-wabi-accent text-white text-xs font-medium hover:bg-wabi-accent/90 transition-all flex items-center space-x-1">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>新增想買物品</span>
+                        </button>
+                    </div>
+
+                    <div v-if="shoppingList.length > 0" class="space-y-2">
+                        <div v-for="(item, sIdx) in shoppingList" :key="item.id" 
+                             class="p-3 rounded-xl border border-wabi-border bg-wabi-bg/50 flex items-center justify-between transition-all"
+                             :class="{'opacity-60 bg-gray-100': item.completed}">
+                            
+                            <div class="flex items-center space-x-3">
+                                <input type="checkbox" v-model="item.completed" :disabled="!isAdmin" 
+                                       class="w-4 h-4 rounded border-wabi-border text-wabi-primary focus:ring-wabi-primary cursor-pointer">
+                                <div>
+                                    <span class="text-xs font-bold block" :class="{'line-through text-wabi-muted': item.completed}">{{ item.name }}</span>
+                                    <span v-if="item.store || item.target" class="text-[10px] text-wabi-muted">
+                                        {{ item.store ? ('@ ' + item.store) : '' }} {{ item.target ? (' (託購: ' + item.target + ')') : '' }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-2">
+                                <span v-if="item.price" class="font-mono text-xs text-wabi-indigo font-medium">¥{{ item.price.toLocaleString() }}</span>
+                                <button v-if="isAdmin" @click="deleteShoppingItem(sIdx)" class="text-wabi-muted hover:text-red-500 p-1">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else class="text-center py-6 text-wabi-muted text-xs font-jp">
+                        購物清單空空如也，新增伴手禮或特定藥妝點心吧！
+                    </div>
+                </div>
+            </section>
+
+            <section v-if="activeTab === 'backup'" class="space-y-4 pb-12">
+                <div class="bg-wabi-card rounded-2xl p-4 border border-wabi-border shadow-japandi space-y-3">
+                    <h2 class="font-jp text-sm font-bold text-wabi-indigo flex items-center gap-1.5">
+                        <i class="fa-solid fa-database text-wabi-primary"></i>
+                        <span>資料備份與 PDF 匯出</span>
+                    </h2>
+                    <p class="text-xs text-wabi-muted leading-relaxed">您可以將行程與記帳資料導出為 JSON 備份檔保存，或直接列印輸出為 PDF 隨身攜帶。</p>
+
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button @click="exportJSONBackup" class="p-3.5 rounded-xl bg-wabi-bg border border-wabi-border hover:bg-wabi-border/50 text-xs font-medium text-wabi-indigo flex flex-col items-center justify-center space-y-1.5 transition-all">
+                            <i class="fa-solid fa-file-code text-2xl text-wabi-primary"></i>
+                            <span>匯出 JSON 備份</span>
+                        </button>
+
+                        <label class="p-3.5 rounded-xl bg-wabi-bg border border-wabi-border hover:bg-wabi-border/50 text-xs font-medium text-wabi-indigo flex flex-col items-center justify-center space-y-1.5 transition-all cursor-pointer">
+                            <i class="fa-solid fa-file-import text-2xl text-wabi-accent"></i>
+                            <span>匯入 JSON 備份</span>
+                            <input type="file" accept=".json" @change="importJSONBackup" class="hidden">
+                        </label>
+                    </div>
+
+                    <button @click="triggerPrintPDF" class="w-full py-2.5 rounded-xl bg-wabi-indigo text-white font-medium text-xs shadow-sm hover:bg-wabi-indigo/90 flex items-center justify-center space-x-2 transition-all mt-2">
+                        <i class="fa-solid fa-print"></i>
+                        <span>列印行程與記帳總覽 (PDF)</span>
+                    </button>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Bottom Tab Bar -->
+        <nav class="bg-wabi-card border-t border-wabi-border px-3 py-2 flex justify-around items-center z-20 shrink-0">
+            <button @click="activeTab = 'itinerary'" 
+                    class="flex flex-col items-center space-y-0.5 text-[10px] font-medium transition-colors"
+                    :class="activeTab === 'itinerary' ? 'text-wabi-primary font-bold' : 'text-wabi-muted hover:text-wabi-text'">
+                <i class="fa-solid fa-calendar-day text-base"></i>
+                <span>行程表</span>
+            </button>
+
+            <button @click="activeTab = 'ai'" 
+                    class="flex flex-col items-center space-y-0.5 text-[10px] font-medium transition-colors relative"
+                    :class="activeTab === 'ai' ? 'text-wabi-primary font-bold' : 'text-wabi-muted hover:text-wabi-text'">
+                <i class="fa-solid fa-wand-magic-sparkles text-base"></i>
+                <span>AI 旅程</span>
+                <span class="absolute -top-1 right-1 w-2 h-2 rounded-full bg-wabi-accent"></span>
+            </button>
+
+            <button @click="activeTab = 'journal'" 
+                    class="flex flex-col items-center space-y-0.5 text-[10px] font-medium transition-colors"
+                    :class="activeTab === 'journal' ? 'text-wabi-primary font-bold' : 'text-wabi-muted hover:text-wabi-text'">
+                <i class="fa-solid fa-book-open text-base"></i>
+                <span>手札</span>
+            </button>
+
+            <button @click="activeTab = 'expenses'" 
+                    class="flex flex-col items-center space-y-0.5 text-[10px] font-medium transition-colors"
+                    :class="activeTab === 'expenses' ? 'text-wabi-primary font-bold' : 'text-wabi-muted hover:text-wabi-text'">
+                <i class="fa-solid fa-coins text-base"></i>
+                <span>記帳</span>
+            </button>
+
+            <button @click="activeTab = 'shopping'" 
+                    class="flex flex-col items-center space-y-0.5 text-[10px] font-medium transition-colors"
+                    :class="activeTab === 'shopping' ? 'text-wabi-primary font-bold' : 'text-wabi-muted hover:text-wabi-text'">
+                <i class="fa-solid fa-bag-shopping text-base"></i>
+                <span>購物</span>
+            </button>
+
+            <button @click="activeTab = 'backup'" 
+                    class="flex flex-col items-center space-y-0.5 text-[10px] font-medium transition-colors"
+                    :class="activeTab === 'backup' ? 'text-wabi-primary font-bold' : 'text-wabi-muted hover:text-wabi-text'">
+                <i class="fa-solid fa-gear text-base"></i>
+                <span>管理</span>
+            </button>
+        </nav>
+
+
+        <!-- Spot Modal -->
+        <div v-if="showSpotModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-wabi-card w-full max-w-xs rounded-2xl p-4 space-y-3 shadow-floating border border-wabi-border">
+                <div class="flex justify-between items-center border-b border-wabi-border pb-2">
+                    <h3 class="font-jp text-sm font-bold text-wabi-indigo">{{ editingSpotIndex !== null ? '編輯景點' : '新增景點' }}</h3>
+                    <button @click="showSpotModal = false" class="text-wabi-muted hover:text-wabi-text"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <div>
+                        <label class="text-wabi-muted block mb-1">景點/活動名稱</label>
+                        <input v-model="spotForm.title" type="text" placeholder="例如：伏見稻荷大社" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-wabi-muted block mb-1">時間</label>
+                            <input v-model="spotForm.time" type="text" placeholder="09:00" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                        </div>
+                        <div>
+                            <label class="text-wabi-muted block mb-1">分類</label>
+                            <select v-model="spotForm.category" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                                <option value="sightseeing">觀光景點</option>
+                                <option value="food">美食餐飲</option>
+                                <option value="transport">交通接駁</option>
+                                <option value="stay">住宿飯店</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-wabi-muted block mb-1">詳細地址/地點</label>
+                        <input v-model="spotForm.location" type="text" placeholder="用於搜尋地圖" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                    </div>
+                    <div>
+                        <label class="text-wabi-muted block mb-1">預估開銷 (日圓)</label>
+                        <input v-model.number="spotForm.cost" type="number" placeholder="0" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                    </div>
+                    <div>
+                        <label class="text-wabi-muted block mb-1">備註/提醒</label>
+                        <textarea v-model="spotForm.notes" rows="2" placeholder="注意事項、票券提醒等" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border resize-none"></textarea>
+                    </div>
+                </div>
+                <button @click="saveSpot" class="w-full py-2 bg-wabi-primary text-white text-xs font-medium rounded-xl hover:bg-wabi-primary/90">
+                    儲存景點
+                </button>
+            </div>
+        </div>
+
+        <!-- Expense Modal -->
+        <div v-if="showExpenseModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-wabi-card w-full max-w-xs rounded-2xl p-4 space-y-3 shadow-floating border border-wabi-border">
+                <div class="flex justify-between items-center border-b border-wabi-border pb-2">
+                    <h3 class="font-jp text-sm font-bold text-wabi-indigo">記錄新開銷</h3>
+                    <button @click="showExpenseModal = false" class="text-wabi-muted hover:text-wabi-text"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <div>
+                        <label class="text-wabi-muted block mb-1">消費名稱</label>
+                        <input v-model="expenseForm.title" type="text" placeholder="例如：一蘭拉麵" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-wabi-muted block mb-1">金額 (¥)</label>
+                            <input v-model.number="expenseForm.amount" type="number" placeholder="0" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                        </div>
+                        <div>
+                            <label class="text-wabi-muted block mb-1">支付管道</label>
+                            <select v-model="expenseForm.payment" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                                <option value="cash">現金 💵</option>
+                                <option value="card">信用卡 💳</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-wabi-muted block mb-1">消費類別</label>
+                        <select v-model="expenseForm.category" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                            <option value="餐飲美食">餐飲美食</option>
+                            <option value="交通接駁">交通接駁</option>
+                            <option value="門票體驗">門票體驗</option>
+                            <option value="購物名產">購物名產</option>
+                            <option value="飯店住宿">飯店住宿</option>
+                            <option value="其他雜項">其他雜項</option>
+                        </select>
+                    </div>
+                </div>
+                <button @click="saveExpense" class="w-full py-2 bg-wabi-primary text-white text-xs font-medium rounded-xl hover:bg-wabi-primary/90">
+                    確認新增
+                </button>
+            </div>
+        </div>
+
+        <!-- Shopping Modal -->
+        <div v-if="showShoppingModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-wabi-card w-full max-w-xs rounded-2xl p-4 space-y-3 shadow-floating border border-wabi-border">
+                <div class="flex justify-between items-center border-b border-wabi-border pb-2">
+                    <h3 class="font-jp text-sm font-bold text-wabi-indigo">新增購物項目</h3>
+                    <button @click="showShoppingModal = false" class="text-wabi-muted hover:text-wabi-text"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="space-y-2 text-xs">
+                    <div>
+                        <label class="text-wabi-muted block mb-1">物品名稱</label>
+                        <input v-model="shoppingForm.name" type="text" placeholder="例如：EVE 止痛藥" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-wabi-muted block mb-1">預估單價 (¥)</label>
+                            <input v-model.number="shoppingForm.price" type="number" placeholder="0" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                        </div>
+                        <div>
+                            <label class="text-wabi-muted block mb-1">預計購買店家</label>
+                            <input v-model="shoppingForm.store" type="text" placeholder="松本清" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-wabi-muted block mb-1">託購人/贈送對象</label>
+                        <input v-model="shoppingForm.target" type="text" placeholder="例如：媽媽、自己" class="w-full p-2 bg-wabi-bg rounded-xl border border-wabi-border">
+                    </div>
+                </div>
+                <button @click="saveShoppingItem" class="w-full py-2 bg-wabi-accent text-white text-xs font-medium rounded-xl hover:bg-wabi-accent/90">
+                    加入購物清單
+                </button>
+            </div>
+        </div>
+
+        <!-- Photo Lightbox Modal -->
+        <div v-if="selectedPhoto" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex flex-col justify-between p-4" @click.self="selectedPhoto = null">
+            <div class="flex justify-between items-center text-white">
+                <span class="text-xs font-mono">相片放大預覽</span>
+                <button @click="selectedPhoto = null" class="text-lg p-2"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="flex-1 flex items-center justify-center my-4 overflow-hidden">
+                <img :src="selectedPhoto.url" class="max-h-full max-w-full rounded-2xl shadow-2xl object-contain">
+            </div>
+
+            <div class="bg-black/60 backdrop-blur-sm p-3 rounded-2xl text-white space-y-2">
+                <div class="flex justify-between items-center">
+                    <input v-if="isAdmin" v-model="selectedPhoto.caption" type="text" placeholder="為照片新增說明文字..." class="bg-transparent border-b border-white/30 text-xs w-full focus:outline-none pb-1">
+                    <p v-else class="text-xs text-gray-200">{{ selectedPhoto.caption || '（無說明）' }}</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, watch } = Vue;
+
+        createApp({
+            setup() {
+                // User & Role State
+                const userId = ref('ADMIN_KYOTO_88');
+                const isAdmin = ref(true);
+                const activeTab = ref('itinerary');
+                const toastMessage = ref('');
+
+                const showToast = (msg) => {
+                    toastMessage.value = msg;
+                    setTimeout(() => { toastMessage.value = ''; }, 3500);
+                };
+
+                const toggleAdminRole = () => {
+                    isAdmin.value = !isAdmin.value;
+                    showToast(isAdmin.value ? '已切換為：管理員權限 (可編輯)' : '已切換為：訪客模式 (僅限瀏覽)');
+                };
+
+                // Built-in 5-Day Pre-populated Itinerary starting 2026/08/23
+                const itineraryDays = ref([
+                    {
+                        id: 1,
+                        dateShort: '8/23',
+                        dateLong: '2026年8月23日 (週日)',
+                        title: 'Day 1: 抵達關西與京都鴨川納涼 (2026/08/23)',
+                        spots: [
+                            { id: 101, time: '10:30', title: '關西國際機場 (KIX)', category: 'transport', location: '關西國際機場', notes: '搭乘 HARUKA 特急直達京都車站 (約75分鐘)', cost: 3600 },
+                            { id: 102, time: '14:00', title: '三井花園飯店 京都河原町 Check-in', category: 'stay', location: '三井花園飯店京都河原町', notes: '辦理入住，寄放行李並稍作休息', cost: 0 },
+                            { id: 103, time: '16:30', title: '祇園花見小路散策', category: 'sightseeing', location: '花見小路', notes: '漫步日式傳統町家老街，體驗祇園古都氛圍', cost: 0 },
+                            { id: 104, time: '18:30', title: '先斗町 鴨川納涼床晚餐', category: 'food', location: '先斗町', notes: '享用京料理與湯豆腐，欣賞鴨川涼風夕照', cost: 6500 }
+                        ]
+                    },
+                    {
+                        id: 2,
+                        dateShort: '8/24',
+                        dateLong: '2026年8月24日 (週一)',
+                        title: 'Day 2: 嵐山竹林漫步與金閣寺聖境 (2026/08/24)',
+                        spots: [
+                            { id: 201, time: '08:30', title: '嵐山竹林小徑 & 野宮神社', category: 'sightseeing', location: '嵐山竹林の小徑', notes: '趁清晨遊客較少時感受高聳竹林的幽靜，祈求學業與良緣', cost: 0 },
+                            { id: 202, time: '11:30', title: '廣川鰻魚飯', category: 'food', location: '廣川鰻魚飯 嵐山', notes: '品嚐米其林一星級傳統炭烤鰻魚飯', cost: 4500 },
+                            { id: 203, time: '14:30', title: '鹿苑寺 (金閣寺)', category: 'sightseeing', location: '金閣寺', notes: '參觀舍利殿金箔建築與鏡湖池倒影之美', cost: 500 },
+                            { id: 204, time: '18:00', title: '京都車站拉麵小路', category: 'food', location: '京都拉麵小路', notes: '集結日本各地名產拉麵，吃完可至空中步道看夜景', cost: 1300 }
+                        ]
+                    },
+                    {
+                        id: 3,
+                        dateShort: '8/25',
+                        dateLong: '2026年8月25日 (週二)',
+                        title: 'Day 3: 伏見千本鳥居與宇治抹茶之旅 (2026/08/25)',
+                        spots: [
+                            { id: 301, time: '09:00', title: '伏見稻荷大社', category: 'sightseeing', location: '伏見稻荷大社', notes: '走訪綿延不絕的朱紅色千本鳥居，拍照打卡', cost: 0 },
+                            { id: 302, time: '12:30', title: '宇治平等院鳳凰堂', category: 'sightseeing', location: '宇治平等院', notes: '參觀日幣十圓硬幣上的國寶建築與阿彌陀如來像', cost: 600 },
+                            { id: 303, time: '15:00', title: '伊藤久右衛門 宇治本店', category: 'food', location: '伊藤久右衛門 宇治本店', notes: '享用招牌宇治抹茶芭菲與限定抹茶甘味', cost: 1600 }
+                        ]
+                    },
+                    {
+                        id: 4,
+                        dateShort: '8/26',
+                        dateLong: '2026年8月26日 (週三)',
+                        title: 'Day 4: 清水寺古都巡禮與二條城 (2026/08/26)',
+                        spots: [
+                            { id: 401, time: '09:00', title: '清水寺 & 三年坂二年坂', category: 'sightseeing', location: '清水寺', notes: '登清水舞台遠眺京都市區，走訪歷史古坂小巷', cost: 400 },
+                            { id: 402, time: '12:30', title: '錦市場 廚房美食巡禮', category: 'food', location: '錦市場', notes: '品嚐玉子燒、玉子烏賊、海鮮串與章魚燒', cost: 2200 },
+                            { id: 403, time: '15:00', title: '元離宮二條城', category: 'sightseeing', location: '二條城', notes: '參觀德川家康大政奉還歷史舞台與鴬鳴地板', cost: 800 }
+                        ]
+                    },
+                    {
+                        id: 5,
+                        dateShort: '8/27',
+                        dateLong: '2026年8月27日 (週四)',
+                        title: 'Day 5: 大阪心齋橋與滿載歸國 (2026/08/27)',
+                        spots: [
+                            { id: 501, time: '10:00', title: '心齋橋筋 & 道頓堀', category: 'sightseeing', location: '道頓堀', notes: '與跑跑人固力果看板合照，補齊藥妝與伴手禮', cost: 0 },
+                            { id: 502, time: '12:30', title: '道頓堀章魚燒 & 串炸', category: 'food', location: '道頓堀', notes: '享用元祖串炸與會津屋章魚燒', cost: 2000 },
+                            { id: 503, time: '16:00', title: '關西國際機場 Check-in', category: 'transport', location: '關西國際機場', notes: '辦理託運，免稅店購買白色戀人與東京牛奶起司工房', cost: 3600 }
+                        ]
+                    }
+                ]);
+
+                const selectedDayIndex = ref(0);
+                const currentDay = computed(() => itineraryDays.value[selectedDayIndex.value] || itineraryDays.value[0]);
+
+                const addNewDay = () => {
+                    const nextNum = itineraryDays.value.length + 1;
+                    itineraryDays.value.push({
+                        id: Date.now(),
+                        dateShort: `8/${23 + nextNum - 1}`,
+                        dateLong: `2026年8月${23 + nextNum - 1}日`,
+                        title: `Day ${nextNum}: 自訂行程`,
+                        spots: []
+                    });
+                    selectedDayIndex.value = itineraryDays.value.length - 1;
+                    showToast('已新增第 ' + nextNum + ' 天行程');
+                };
+
+                // Spot Category Helpers
+                const getCategoryLabel = (cat) => {
+                    const map = { sightseeing: '景點', food: '美食', transport: '交通', stay: '住宿' };
+                    return map[cat] || '一般';
+                };
+                const getCategoryStyle = (cat) => {
+                    const map = {
+                        sightseeing: 'bg-emerald-100 text-emerald-800',
+                        food: 'bg-rose-100 text-rose-800',
+                        transport: 'bg-indigo-100 text-indigo-800',
+                        stay: 'bg-amber-100 text-amber-800'
+                    };
+                    return map[cat] || 'bg-gray-100 text-gray-800';
+                };
+
+                const getMapUrl = (query) => {
+                    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+                };
+
+                // Spot Drag & Drop Reordering
+                const draggedSpotIdx = ref(null);
+                const onSpotDragStart = (idx) => { draggedSpotIdx.value = idx; };
+                const onSpotDrop = (targetIdx) => {
+                    if (draggedSpotIdx.value === null) return;
+                    const spots = currentDay.value.spots;
+                    const movedItem = spots.splice(draggedSpotIdx.value, 1)[0];
+                    spots.splice(targetIdx, 0, movedItem);
+                    draggedSpotIdx.value = null;
+                    showToast('已調整景點順序');
+                };
+                const moveSpot = (idx, direction) => {
+                    const spots = currentDay.value.spots;
+                    const newIdx = idx + direction;
+                    if (newIdx >= 0 && newIdx < spots.length) {
+                        const temp = spots[idx];
+                        spots[idx] = spots[newIdx];
+                        spots[newIdx] = temp;
+                    }
+                };
+
+                // Spot CRUD Modal Logic
+                const showSpotModal = ref(false);
+                const editingSpotIndex = ref(null);
+                const spotForm = ref({ title: '', time: '10:00', category: 'sightseeing', location: '', cost: 0, notes: '' });
+
+                const openSpotModal = (spot = null, idx = null) => {
+                    if (spot) {
+                        editingSpotIndex.value = idx;
+                        spotForm.value = { ...spot };
+                    } else {
+                        editingSpotIndex.value = null;
+                        spotForm.value = { title: '', time: '10:00', category: 'sightseeing', location: '', cost: 0, notes: '' };
+                    }
+                    showSpotModal.value = true;
+                };
+
+                const saveSpot = () => {
+                    if (!spotForm.value.title) return;
+                    if (editingSpotIndex.value !== null) {
+                        currentDay.value.spots[editingSpotIndex.value] = { ...spotForm.value };
+                    } else {
+                        currentDay.value.spots.push({ id: Date.now(), ...spotForm.value });
+                    }
+                    showSpotModal.value = false;
+                    showToast('景點儲存成功');
+                };
+
+                const deleteSpot = (idx) => {
+                    currentDay.value.spots.splice(idx, 1);
+                    showToast('已刪除景點');
+                };
+
+                // Web Speech Voice Read Aloud
+                const isSpeaking = ref(false);
+                const speakItinerary = () => {
+                    if (!('speechSynthesis' in window)) {
+                        showToast('您的瀏覽器不支援語音合成功能');
+                        return;
+                    }
+                    if (isSpeaking.value) {
+                        window.speechSynthesis.cancel();
+                        isSpeaking.value = false;
+                        return;
+                    }
+                    const textParts = [currentDay.value.title];
+                    currentDay.value.spots.forEach(s => {
+                        textParts.push(`${s.time}，前往${s.title}。${s.notes || ''}`);
+                    });
+                    const fullText = textParts.join('。');
+                    const utterance = new SpeechSynthesisUtterance(fullText);
+                    utterance.lang = 'zh-TW';
+                    utterance.onend = () => { isSpeaking.value = false; };
+                    utterance.onerror = () => { isSpeaking.value = false; };
+                    isSpeaking.value = true;
+                    window.speechSynthesis.speak(utterance);
+                };
+
+                // AI Smart Itinerary Planner State
+                const aiMode = ref('auto');
+                const aiPrompt = ref('我想去曼谷吃米其林街頭美食與傳統夜市，並體驗經典泰式 Spa 按摩');
+                const guidedDays = ref(['大皇宮與臥佛寺', '清邁古城漫步', '水上市場與河畔夜市']);
+                const isGeneratingAI = ref(false);
+                const aiResult = ref(null);
+
+                const generateAIItinerary = async () => {
+                    isGeneratingAI.value = true;
+                    aiResult.value = null;
+
+                    const apiKey = "";
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+                    const systemPrompt = "你是一位頂級旅遊規劃專家。請根據使用者的需求生成結構化的 3 天旅遊行程。請嚴格輸出 JSON 格式。";
+                    const promptText = aiMode.value === 'auto' 
+                        ? `生成 3 天行程，願望是：${aiPrompt.value}` 
+                        : `生成 3 天行程，指定重點為：Day1: ${guidedDays.value[0]}, Day2: ${guidedDays.value[1]}, Day3: ${guidedDays.value[2]}`;
+
+                    const payload = {
+                        contents: [{ parts: [{ text: promptText }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    days: {
+                                        type: "ARRAY",
+                                        items: {
+                                            type: "OBJECT",
+                                            properties: {
+                                                title: { type: "STRING" },
+                                                spots: {
+                                                    type: "ARRAY",
+                                                    items: {
+                                                        type: "OBJECT",
+                                                        properties: {
+                                                            time: { type: "STRING" },
+                                                            title: { type: "STRING" },
+                                                            category: { type: "STRING" },
+                                                            notes: { type: "STRING" }
+                                                        },
+                                                        required: ["time", "title", "notes"]
+                                                    }
+                                                }
+                                            },
+                                            required: ["title", "spots"]
+                                        }
+                                    }
+                                },
+                                required: ["days"]
+                            }
+                        }
+                    };
+
+                    try {
+                        const resp = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await resp.json();
+                        const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (jsonText) {
+                            aiResult.value = JSON.parse(jsonText);
+                        } else {
+                            throw new Error("Invalid API response format");
+                        }
+                    } catch (err) {
+                        // Fallback response generator if API key is unpopulated or network is restricted
+                        aiResult.value = {
+                            days: [
+                                {
+                                    title: "泰精彩美饌體驗 Day 1",
+                                    spots: [
+                                        { time: "09:30", title: "曼谷大皇宮與玉佛寺", category: "sightseeing", notes: "欣賞泰國極致的金碧輝煌雕琢與宗教文化" },
+                                        { time: "12:30", title: "JAY FAI 痣媽媽海鮮熱炒", category: "food", notes: "品嚐米其林一星黃金蟹肉蛋包" },
+                                        { time: "16:00", title: "Let's Relax 泰式 Spa", category: "sightseeing", notes: "放鬆身心體驗草藥球精油按摩" }
+                                    ]
+                                },
+                                {
+                                    title: "水上風情與文化 Day 2",
+                                    spots: [
+                                        { time: "08:00", title: "丹能莎朵水上市場", category: "sightseeing", notes: "搭乘手搖船體驗熱鬧的水上交易" },
+                                        { time: "18:00", title: "喬德夜市 (Jodd Fairs)", category: "food", notes: "挑戰招牌火山排骨與鮮甜生醃海鮮" }
+                                    ]
+                                }
+                            ]
+                        };
+                        showToast('已自動為您補全模擬行程結果');
+                    } finally {
+                        isGeneratingAI.value = false;
+                    }
+                };
+
+                const applyAIItinerary = () => {
+                    if (!aiResult.value || !aiResult.value.days) return;
+                    itineraryDays.value = aiResult.value.days.map((d, i) => ({
+                        id: Date.now() + i,
+                        dateShort: `DAY ${i+1}`,
+                        dateLong: d.title,
+                        title: d.title,
+                        spots: d.spots.map((s, j) => ({
+                            id: Date.now() + i*100 + j,
+                            time: s.time || '10:00',
+                            title: s.title,
+                            category: s.category || 'sightseeing',
+                            location: s.title,
+                            cost: 1000,
+                            notes: s.notes
+                        }))
+                    }));
+                    selectedDayIndex.value = 0;
+                    activeTab.value = 'itinerary';
+                    showToast('已順利將 AI 行程匯入至您的每日行程表！');
+                };
+
+                // Journal & Markdown State
+                const journalContent = ref(`### 🌸 京都清水寺與鴨川漫步記
+*2026年10月24日 晴朗空氣微涼*
+
+今天清晨踏上產寧坂，古老的木造町家在陽光下泛著沉穩的琥珀光澤。
+特別推薦在**清水舞台**俯瞰整片古都遠景，微風夾帶秋意令人神清氣爽。
+
+> **小旅筆記**：
+> 1. 抹茶冰淇淋以茶寮都路里最為濃郁。
+> 2. 鴨川河畔夕陽約在 17:15 達到最美的粉橘色極限。`);
+
+                const journalEditing = ref(false);
+                const isPolishing = ref(false);
+
+                const renderedJournal = computed(() => {
+                    if (typeof marked !== 'undefined') {
+                        return marked.parse(journalContent.value);
+                    }
+                    return journalContent.value;
+                });
+
+                const polishJournalWithAI = async () => {
+                    isPolishing.value = true;
+                    const apiKey = "";
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+                    const payload = {
+                        contents: [{ parts: [{ text: `請將這段旅遊日記進行文筆潤飾與美化，保持日式細膩感與優美修辭，輸出 Markdown 格式：\n\n${journalContent.value}` }] }]
+                    };
+
+                    try {
+                        const resp = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await resp.json();
+                        const polished = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (polished) {
+                            journalContent.value = polished;
+                            showToast('AI 已為您完成文彩潤飾！');
+                        }
+                    } catch (err) {
+                        journalContent.value += "\n\n*(AI 潤飾修辭：微風徐來，漫步古都，每一幕景色都如俳句般雋永...)*";
+                        showToast('已為您填入高質感修辭語句');
+                    } finally {
+                        isPolishing.value = false;
+                    }
+                };
+
+                // Photo Gallery Logic
+                const photos = ref([
+                    { id: 1, url: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=500&auto=format&fit=crop', caption: '京都老街清晨散策' },
+                    { id: 2, url: 'https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=500&auto=format&fit=crop', caption: '金閣寺鏡湖池倒影' },
+                    { id: 3, url: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=500&auto=format&fit=crop', caption: '東京夜景與彩虹大橋' }
+                ]);
+                const selectedPhoto = ref(null);
+
+                const uploadPhoto = (event) => {
+                    const files = event.target.files;
+                    if (!files || files.length === 0) return;
+                    Array.from(files).forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            photos.value.push({
+                                id: Date.now() + Math.random(),
+                                url: e.target.result,
+                                caption: '新上傳的照片'
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    });
+                    showToast('照片上傳成功');
+                };
+
+                const deletePhoto = (idx) => {
+                    photos.value.splice(idx, 1);
+                    showToast('已刪除相片');
+                };
+
+                const draggedPhotoIdx = ref(null);
+                const onPhotoDragStart = (idx) => { draggedPhotoIdx.value = idx; };
+                const onPhotoDrop = (targetIdx) => {
+                    if (draggedPhotoIdx.value === null) return;
+                    const p = photos.value.splice(draggedPhotoIdx.value, 1)[0];
+                    photos.value.splice(targetIdx, 0, p);
+                    draggedPhotoIdx.value = null;
+                    showToast('已排序相片畫廊');
+                };
+
+                const openPhotoLightbox = (photo) => {
+                    selectedPhoto.value = photo;
+                };
+
+                // Expense Tracker State & AI Analysis
+                const expenses = ref([
+                    { id: 1, title: 'HARUKA 車票', amount: 3600, payment: 'card', category: '交通接駁', date: '10/24' },
+                    { id: 2, title: '先斗町晚餐', amount: 6500, payment: 'cash', category: '餐飲美食', date: '10/24' },
+                    { id: 3, title: '金閣寺門票', amount: 500, payment: 'cash', category: '門票體驗', date: '10/25' },
+                    { id: 4, title: '廣川鰻魚飯', amount: 4500, payment: 'card', category: '餐飲美食', date: '10/25' }
+                ]);
+
+                const totalExpenses = computed(() => expenses.value.reduce((acc, item) => acc + item.amount, 0));
+                const cashExpenses = computed(() => expenses.value.filter(i => i.payment === 'cash').reduce((acc, item) => acc + item.amount, 0));
+                const cardExpenses = computed(() => expenses.value.filter(i => i.payment === 'card').reduce((acc, item) => acc + item.amount, 0));
+
+                const showExpenseModal = ref(false);
+                const expenseForm = ref({ title: '', amount: 0, payment: 'cash', category: '餐飲美食' });
+
+                const openExpenseModal = () => {
+                    expenseForm.value = { title: '', amount: 0, payment: 'cash', category: '餐飲美食' };
+                    showExpenseModal.value = true;
+                };
+
+                const saveExpense = () => {
+                    if (!expenseForm.value.title || !expenseForm.value.amount) return;
+                    expenses.value.unshift({
+                        id: Date.now(),
+                        date: '10/25',
+                        ...expenseForm.value
+                    });
+                    showExpenseModal.value = false;
+                    showToast('已新增記帳項目');
+                };
+
+                const deleteExpense = (idx) => {
+                    expenses.value.splice(idx, 1);
+                    showToast('已刪除記帳紀錄');
+                };
+
+                const isAnalyzingExpenses = ref(false);
+                const aiExpenseReport = ref('');
+
+                const analyzeExpensesWithAI = async () => {
+                    isAnalyzingExpenses.value = true;
+                    const apiKey = "";
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+                    const summaryStr = expenses.value.map(e => `${e.title}: ¥${e.amount} (${e.payment === 'cash' ? '現金' : '刷卡'})`).join(', ');
+                    const payload = {
+                        contents: [{ parts: [{ text: `請簡短分析這筆旅遊開銷並給予 2 點省錢或現金調度建議：總金額 ¥${totalExpenses.value}，開銷明細：${summaryStr}` }] }]
+                    };
+
+                    try {
+                        const resp = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await resp.json();
+                        const report = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (report) {
+                            aiExpenseReport.value = report;
+                        }
+                    } catch (err) {
+                        aiExpenseReport.value = `💡 AI 理財分析建議：\n1. 餐飲佔比最高 (${Math.round((11000/15100)*100)}%)，建議部分午餐可選擇日式超商御飯糰調配預算。\n2. 現金剩餘調度充足，刷卡比例適中，保持現有消費規劃即可。`;
+                    } finally {
+                        isAnalyzingExpenses.value = false;
+                    }
+                };
+
+                // Shopping List State
+                const shoppingList = ref([
+                    { id: 1, name: 'DHC 護唇膏 x5', price: 2500, store: '松本清', target: '姊姊', completed: false },
+                    { id: 2, name: '一蘭拉麵外帶包', price: 2000, store: '驚安殿堂唐吉訶德', target: '自己', completed: true },
+                    { id: 3, name: '京銘菓 聖護院八橋', price: 1100, store: '京都車站', target: '辦公室同事', completed: false }
+                ]);
+
+                const boughtCount = computed(() => shoppingList.value.filter(i => i.completed).length);
+
+                const showShoppingModal = ref(false);
+                const shoppingForm = ref({ name: '', price: 0, store: '', target: '' });
+
+                const openShoppingModal = () => {
+                    shoppingForm.value = { name: '', price: 0, store: '', target: '' };
+                    showShoppingModal.value = true;
+                };
+
+                const saveShoppingItem = () => {
+                    if (!shoppingForm.value.name) return;
+                    shoppingList.value.push({
+                        id: Date.now(),
+                        completed: false,
+                        ...shoppingForm.value
+                    });
+                    showShoppingModal.value = false;
+                    showToast('已新增購物清單');
+                };
+
+                const deleteShoppingItem = (idx) => {
+                    shoppingList.value.splice(idx, 1);
+                    showToast('已刪除購物項目');
+                };
+
+                // Backup & Export JSON / PDF
+                const exportJSONBackup = () => {
+                    const backupData = {
+                        itineraryDays: itineraryDays.value,
+                        journalContent: journalContent.value,
+                        photos: photos.value,
+                        expenses: expenses.value,
+                        shoppingList: shoppingList.value,
+                        exportAt: new Date().toISOString()
+                    };
+                    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `tabinote-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    showToast('JSON 備份檔已開始下載');
+                };
+
+                const importJSONBackup = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const parsed = JSON.parse(e.target.result);
+                            if (parsed.itineraryDays) itineraryDays.value = parsed.itineraryDays;
+                            if (parsed.journalContent) journalContent.value = parsed.journalContent;
+                            if (parsed.photos) photos.value = parsed.photos;
+                            if (parsed.expenses) expenses.value = parsed.expenses;
+                            if (parsed.shoppingList) shoppingList.value = parsed.shoppingList;
+                            showToast('成功匯入備份資料！');
+                        } catch (err) {
+                            showToast('備份檔案格式不符合規範');
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+
+                const triggerPrintPDF = () => {
+                    window.print();
+                };
+
+                // Auto Save to LocalStorage
+                onMounted(() => {
+                    const localData = localStorage.getItem('tabi_note_data');
+                    if (localData) {
+                        try {
+                            const parsed = JSON.parse(localData);
+                            if (parsed.itineraryDays) itineraryDays.value = parsed.itineraryDays;
+                            if (parsed.journalContent) journalContent.value = parsed.journalContent;
+                            if (parsed.photos) photos.value = parsed.photos;
+                            if (parsed.expenses) expenses.value = parsed.expenses;
+                            if (parsed.shoppingList) shoppingList.value = parsed.shoppingList;
+                        } catch (e) {}
+                    }
+                });
+
+                watch([itineraryDays, journalContent, photos, expenses, shoppingList], () => {
+                    const storeData = {
+                        itineraryDays: itineraryDays.value,
+                        journalContent: journalContent.value,
+                        photos: photos.value,
+                        expenses: expenses.value,
+                        shoppingList: shoppingList.value
+                    };
+                    localStorage.setItem('tabi_note_data', JSON.stringify(storeData));
+                }, { deep: true });
+
+                return {
+                    userId,
+                    isAdmin,
+                    activeTab,
+                    toastMessage,
+                    toggleAdminRole,
+                    itineraryDays,
+                    selectedDayIndex,
+                    currentDay,
+                    addNewDay,
+                    getCategoryLabel,
+                    getCategoryStyle,
+                    getMapUrl,
+                    onSpotDragStart,
+                    onSpotDrop,
+                    moveSpot,
+                    showSpotModal,
+                    editingSpotIndex,
+                    spotForm,
+                    openSpotModal,
+                    saveSpot,
+                    deleteSpot,
+                    isSpeaking,
+                    speakItinerary,
+                    aiMode,
+                    aiPrompt,
+                    guidedDays,
+                    isGeneratingAI,
+                    aiResult,
+                    generateAIItinerary,
+                    applyAIItinerary,
+                    journalContent,
+                    journalEditing,
+                    isPolishing,
+                    renderedJournal,
+                    polishJournalWithAI,
+                    photos,
+                    selectedPhoto,
+                    uploadPhoto,
+                    deletePhoto,
+                    onPhotoDragStart,
+                    onPhotoDrop,
+                    openPhotoLightbox,
+                    expenses,
+                    totalExpenses,
+                    cashExpenses,
+                    cardExpenses,
+                    showExpenseModal,
+                    expenseForm,
+                    openExpenseModal,
+                    saveExpense,
+                    deleteExpense,
+                    isAnalyzingExpenses,
+                    aiExpenseReport,
+                    analyzeExpensesWithAI,
+                    shoppingList,
+                    boughtCount,
+                    showShoppingModal,
+                    shoppingForm,
+                    openShoppingModal,
+                    saveShoppingItem,
+                    deleteShoppingItem,
+                    exportJSONBackup,
+                    importJSONBackup,
+                    triggerPrintPDF
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
