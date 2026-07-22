@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TabiNote 旅之手札 | 雲端同步版</title>
+    <title>TabiNote 旅之手札 | 雲端即時同步版</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Vue 3 -->
@@ -16,11 +16,11 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        window.firebaseModules = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, doc, setDoc, getDoc, onSnapshot };
-        window.dispatchEvent(new Event('firebase-loaded'));
+        window.FB = { initializeApp, getAuth, signInAnonymously, getFirestore, doc, setDoc, getDoc, onSnapshot };
+        window.dispatchEvent(new Event('fb-ready'));
     </script>
 
     <script>
@@ -85,7 +85,7 @@
         <header class="bg-jp-bg sticky top-0 z-40 px-5 pt-6 pb-3 flex justify-between items-center border-b border-jp-border">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-compass text-jp-accent text-xl"></i>
-                <h1 class="text-lg font-bold text-jp-text tracking-wider">旅之手札 <span class="text-xs font-normal text-jp-muted ml-1">雲端同步版</span></h1>
+                <h1 class="text-lg font-bold text-jp-text tracking-wider">旅之手札 <span class="text-xs font-normal text-jp-muted ml-1">雲端即時同步</span></h1>
             </div>
             <div class="flex flex-col items-end gap-1">
                 <div @click="toggleAdmin" class="cursor-pointer rounded-full px-3 py-1.5 flex items-center gap-2 transition-colors border shadow-sm" :class="isAdmin ? 'bg-jp-primary text-white border-jp-primary' : 'bg-white text-gray-500 border-gray-200'">
@@ -290,7 +290,7 @@
                     <h2 class="text-lg font-bold text-jp-text mb-4 border-b pb-2"><i class="fa-solid fa-database mr-2 text-jp-accent"></i>雲端資料管理</h2>
                     
                     <div class="bg-emerald-50 text-emerald-800 p-3 rounded-xl text-xs mb-4 leading-relaxed border border-emerald-200">
-                        <i class="fa-solid fa-cloud-arrow-up mr-1"></i> 您已連線至雲端資料庫。所有親友打開此網頁都會同步顯示最新修改！
+                        <i class="fa-solid fa-cloud-arrow-up mr-1"></i> 您已連線至 Firebase 雲端資料庫。全體親友開啟此網頁將即時同步！
                     </div>
 
                     <div class="space-y-4">
@@ -542,7 +542,7 @@ const defaultItinerary = [
         date: "8/30", title: "賦歸 / 前往機場", fullDate: "8/30 (日) Day 8: 滿載而歸",
         dayHotel: "甜蜜溫暖的家 🏠", 
         items: [
-            { time: "09:00", title: "辦理退房", desc: "確認行李, 戰利品皆已打包。", type: "hotel" },
+            { time: "09:00", title: "辦理退房", desc: "確認行李、戰利品皆已打包。", type: "hotel" },
             { time: "09:30", title: "前往羽田/成田機場", desc: "搭乘特急列車前往機場準備搭機返台。", type: "transport" }
         ]
     }
@@ -554,8 +554,8 @@ const defaultExpenses = [
     { id: 2, title: '敘敘苑燒肉晚餐', amount: 28000, payment: '現金', category: '美食餐飲', payer: '二姊' }
 ];
 
-window.addEventListener('firebase-loaded', () => {
-    const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, getFirestore, doc, setDoc, getDoc, onSnapshot } = window.firebaseModules;
+window.addEventListener('fb-ready', async () => {
+    const { initializeApp, getAuth, signInAnonymously, getFirestore, doc, setDoc, getDoc, onSnapshot } = window.FB;
     const { createApp, ref, computed, onMounted, watch } = Vue;
 
     createApp({
@@ -565,14 +565,14 @@ window.addEventListener('firebase-loaded', () => {
             const showAdminLogin = ref(false);
             const adminPassword = ref('');
 
-            const itineraryDays = ref([]);
+            const itineraryDays = ref(JSON.parse(JSON.stringify(defaultItinerary)));
             const selectedDayIdx = ref(0);
             
-            const journalContent = ref('');
+            const journalContent = ref(defaultJournal);
             const journalPhotos = ref([]);
             const previewPhotoUrl = ref(null);
 
-            const expenses = ref([]);
+            const expenses = ref(JSON.parse(JSON.stringify(defaultExpenses)));
             const showExpenseModal = ref(false);
             const newExpense = ref({ title: '', amount: null, payment: '現金', category: '美食餐飲', payer: '' });
 
@@ -590,7 +590,6 @@ window.addEventListener('firebase-loaded', () => {
             const editItemForm = ref({ time: '10:00', title: '', desc: '', type: 'sightseeing' });
             let editingItemIndex = -1;
 
-            // --- Firebase 雲端初始化與即時監聽 ---
             let db = null;
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'travel-app-2026';
             const docRefPath = ['artifacts', appId, 'public', 'data', 'travel_main_data'];
@@ -609,16 +608,11 @@ window.addEventListener('firebase-loaded', () => {
 
                     if (snap.exists()) {
                         const cloudData = snap.data();
-                        itineraryDays.value = cloudData.itinerary || defaultItinerary;
-                        journalContent.value = cloudData.journal !== undefined ? cloudData.journal : defaultJournal;
-                        journalPhotos.value = cloudData.photos || [];
-                        expenses.value = cloudData.expenses || defaultExpenses;
+                        if (cloudData.itinerary) itineraryDays.value = cloudData.itinerary;
+                        if (cloudData.journal !== undefined) journalContent.value = cloudData.journal;
+                        if (cloudData.photos) journalPhotos.value = cloudData.photos;
+                        if (cloudData.expenses) expenses.value = cloudData.expenses;
                     } else {
-                        // 初始化預設資料至雲端
-                        itineraryDays.value = JSON.parse(JSON.stringify(defaultItinerary));
-                        journalContent.value = defaultJournal;
-                        journalPhotos.value = [];
-                        expenses.value = JSON.parse(JSON.stringify(defaultExpenses));
                         await setDoc(docRef, {
                             itinerary: itineraryDays.value,
                             journal: journalContent.value,
@@ -627,7 +621,7 @@ window.addEventListener('firebase-loaded', () => {
                         });
                     }
 
-                    // 雲端即時監聽 (Realtime listener)
+                    // Realtime sync listener
                     onSnapshot(docRef, (docSnap) => {
                         if (docSnap.exists() && !isRemoteUpdate) {
                             const remoteData = docSnap.data();
@@ -638,19 +632,13 @@ window.addEventListener('firebase-loaded', () => {
                             if (remoteData.expenses) expenses.value = remoteData.expenses;
                             setTimeout(() => { isRemoteUpdate = false; }, 300);
                         }
-                    }, (error) => {
-                        console.error("Cloud sync error:", error);
                     });
 
                 } catch (e) {
-                    console.error("Firebase init failed, fallback to local:", e);
-                    itineraryDays.value = JSON.parse(JSON.stringify(defaultItinerary));
-                    journalContent.value = defaultJournal;
-                    expenses.value = JSON.parse(JSON.stringify(defaultExpenses));
+                    console.error("Firebase sync error:", e);
                 }
             });
 
-            // 自動同步至雲端資料庫
             const syncToCloud = async () => {
                 if (!db || isRemoteUpdate) return;
                 try {
@@ -662,9 +650,9 @@ window.addEventListener('firebase-loaded', () => {
                         photos: journalPhotos.value,
                         expenses: expenses.value
                     });
-                    setTimeout(() => { saveStatus.value = false; }, 1500);
+                    setTimeout(() => { saveStatus.value = false; }, 1000);
                 } catch (e) {
-                    console.error("Sync error:", e);
+                    console.error("Cloud save failed:", e);
                     saveStatus.value = false;
                 }
             };
