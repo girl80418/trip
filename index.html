@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -79,11 +78,10 @@
                 <h1 class="text-lg font-bold text-jp-text tracking-wider">旅之手札 <span class="text-xs font-normal text-jp-muted ml-1">Tokyo '26</span></h1>
             </div>
             <div class="flex flex-col items-end gap-1">
-                <div @click="toggleAdmin" class="cursor-pointer rounded-full px-3 py-1 flex items-center gap-2 transition-colors border shadow-sm" :class="isAdmin ? 'bg-jp-primary text-white border-jp-primary' : 'bg-white text-gray-500 border-gray-200'">
+                <div @click="toggleAdmin" class="cursor-pointer rounded-full px-3 py-1.5 flex items-center gap-2 transition-colors border shadow-sm" :class="isAdmin ? 'bg-jp-primary text-white border-jp-primary' : 'bg-white text-gray-500 border-gray-200'">
                     <i class="fa-solid text-xs" :class="isAdmin ? 'fa-unlock' : 'fa-lock'"></i>
-                    <span class="text-[10px] font-bold">{{ isAdmin ? '管理員' : '訪客' }}</span>
+                    <span class="text-xs font-bold">{{ isAdmin ? '管理員 (已解鎖)' : '訪客 (點擊解鎖)' }}</span>
                 </div>
-                <!-- Save Status Indicator -->
                 <Transition name="fade">
                     <span v-if="saveStatus" class="text-[10px] text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded-full mt-1">
                         <i class="fa-solid fa-cloud-check mr-1"></i>已自動儲存
@@ -97,6 +95,15 @@
             
             <!-- Tab: Itinerary (行程表) -->
             <div v-show="currentTab === 'itinerary'" class="p-4 space-y-4">
+                
+                <!-- 管理員專屬操作列 -->
+                <div v-if="isAdmin" class="bg-jp-primary/10 border border-jp-primary/30 rounded-xl p-3 flex justify-between items-center">
+                    <span class="text-xs font-bold text-jp-primary"><i class="fa-solid fa-screwdriver-wrench mr-1"></i>管理員模式已啟用</span>
+                    <button @click="openAddDayModal" class="bg-jp-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-plus"></i> 新增一天行程
+                    </button>
+                </div>
+
                 <div class="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
                     <button v-for="(day, index) in itineraryDays" :key="index"
                             @click="selectedDayIdx = index"
@@ -113,10 +120,10 @@
                             <p class="text-sm text-jp-muted mt-1">{{ activeDay.title }}</p>
                         </div>
                         <div class="flex gap-2" v-if="isAdmin">
-                            <button @click="editDayInfo(activeDay, selectedDayIdx)" class="text-jp-muted hover:text-jp-primary bg-gray-100 p-2 rounded-full shadow-sm">
+                            <button @click="editDayInfo(selectedDayIdx)" class="text-jp-muted hover:text-jp-primary bg-gray-100 p-2 rounded-full shadow-sm" title="編輯當天資訊">
                                 <i class="fa-solid fa-pen text-xs"></i>
                             </button>
-                            <button @click="deleteDay(selectedDayIdx)" class="text-jp-muted hover:text-red-500 bg-gray-100 p-2 rounded-full shadow-sm">
+                            <button @click="deleteDay(selectedDayIdx)" class="text-jp-muted hover:text-red-500 bg-gray-100 p-2 rounded-full shadow-sm" title="刪除整天">
                                 <i class="fa-solid fa-trash text-xs"></i>
                             </button>
                         </div>
@@ -124,10 +131,10 @@
 
                     <!-- Timeline -->
                     <div class="space-y-0 relative">
-                        <div v-if="activeDay.items.length === 0" class="text-center text-jp-muted py-6 text-sm">
-                            目前沒有行程，請點擊下方新增。
+                        <div v-if="!activeDay.items || activeDay.items.length === 0" class="text-center text-jp-muted py-6 text-sm">
+                            目前沒有行程，請點擊下方按鈕新增。
                         </div>
-                        <div v-for="(item, idx) in activeDay.items" :key="item.id || idx" class="timeline-item relative pl-12 pb-6">
+                        <div v-for="(item, idx) in activeDay.items" :key="idx" class="timeline-item relative pl-12 pb-6">
                             <div class="timeline-line"></div>
                             <div class="absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center z-10"
                                  :class="getTypeColor(item.type)">
@@ -138,8 +145,8 @@
                                 <div class="flex justify-between items-start">
                                     <div class="font-mono text-sm font-bold text-jp-primary">{{ item.time }}</div>
                                     <div class="flex gap-2" v-if="isAdmin">
-                                        <button @click="editItem(item, idx)" class="text-gray-300 hover:text-jp-primary"><i class="fa-solid fa-pen-to-square"></i></button>
-                                        <button @click="deleteItem(idx)" class="text-gray-300 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
+                                        <button @click="editItem(idx)" class="text-gray-400 hover:text-jp-primary p-1"><i class="fa-solid fa-pen-to-square"></i></button>
+                                        <button @click="deleteItem(idx)" class="text-gray-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash"></i></button>
                                     </div>
                                 </div>
                                 <h3 class="text-base font-bold text-jp-text mt-1">{{ item.title }}</h3>
@@ -154,8 +161,8 @@
                         </div>
                     </div>
                     
-                    <button v-if="isAdmin" @click="openAddItemModal" class="w-full mt-2 mb-6 py-3 border-2 border-dashed border-jp-border text-jp-muted rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 font-medium">
-                        <i class="fa-solid fa-plus"></i> 新增行程節點
+                    <button v-if="isAdmin" @click="openAddItemModal" class="w-full mt-2 mb-6 py-3.5 border-2 border-dashed border-jp-primary/40 text-jp-primary rounded-xl hover:bg-jp-primary/5 transition-colors flex items-center justify-center gap-2 font-bold text-sm">
+                        <i class="fa-solid fa-circle-plus text-base"></i> 新增此天的行程節點
                     </button>
 
                     <!-- Hotel Footer -->
@@ -183,7 +190,7 @@
                     </div>
                     
                     <div>
-                        <textarea v-model="journalContent" rows="8" placeholder="在此記錄每天的心情、花費小感、或是貼上 Markdown 筆記..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-jp-primary leading-relaxed resize-none"></textarea>
+                        <textarea v-model="journalContent" rows="8" placeholder="在此記錄每天的心情、花費小感..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-jp-primary leading-relaxed resize-none"></textarea>
                     </div>
 
                     <div class="border-t pt-4">
@@ -212,7 +219,6 @@
 
             <!-- Tab: Expense (記帳功能) -->
             <div v-show="currentTab === 'expense'" class="p-4 space-y-4">
-                <!-- Summary Card -->
                 <div class="bg-gradient-to-br from-jp-primary to-gray-800 text-white rounded-2xl p-5 shadow-md space-y-3">
                     <div class="flex justify-between items-center">
                         <span class="text-xs text-gray-200 uppercase tracking-widest"><i class="fa-solid fa-wallet mr-1"></i>總消費金額 (JPY)</span>
@@ -228,7 +234,6 @@
                     </div>
                 </div>
 
-                <!-- AI Analysis Box -->
                 <div class="bg-jp-card rounded-2xl shadow-sm border border-jp-border p-4">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="text-xs font-bold text-jp-text uppercase tracking-wider"><i class="fa-solid fa-chart-pie mr-1.5 text-jp-accent"></i>消費結構分析</h3>
@@ -237,7 +242,6 @@
                     <p class="text-xs text-jp-muted leading-relaxed">{{ aiExpenseAnalysis }}</p>
                 </div>
 
-                <!-- Expense List -->
                 <div class="bg-jp-card rounded-2xl shadow-sm border border-jp-border p-4 space-y-3">
                     <h3 class="text-xs font-bold text-jp-text uppercase tracking-wider mb-2">消費明細列表</h3>
                     
@@ -245,7 +249,7 @@
                         目前沒有記帳資料。
                     </div>
                     
-                    <div v-for="(item, eIdx) in expenses" :key="item.id || eIdx" class="flex justify-between items-center p-3 rounded-xl bg-gray-50 border border-gray-100">
+                    <div v-for="(item, eIdx) in expenses" :key="eIdx" class="flex justify-between items-center p-3 rounded-xl bg-gray-50 border border-gray-100">
                         <div class="flex items-center gap-3">
                             <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
                                  :class="item.payment === '現金' ? 'bg-emerald-600' : 'bg-blue-600'">
@@ -277,7 +281,7 @@
                     <h2 class="text-lg font-bold text-jp-text mb-4 border-b pb-2"><i class="fa-solid fa-database mr-2 text-jp-accent"></i>資料管理與備份</h2>
                     
                     <div class="bg-yellow-50 text-yellow-800 p-3 rounded-xl text-xs mb-4 leading-relaxed border border-yellow-200">
-                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> 您的行程、手札與記帳會即時儲存於當前設備。建議點擊「匯出備份」將檔案傳給親友！
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> 您的資料會即時自動儲存。建議點擊「匯出備份」將檔案傳給親友！
                     </div>
 
                     <div class="space-y-4">
@@ -289,11 +293,6 @@
                             <label class="w-full bg-gray-100 text-jp-text py-3 rounded-xl font-medium flex items-center justify-center gap-2 cursor-pointer border border-gray-200">
                                 <i class="fa-solid fa-upload"></i> 還原備份 (JSON)
                                 <input type="file" class="hidden" accept=".json" @change="importJSON">
-                            </label>
-
-                            <label class="w-full bg-[#217346] text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2 cursor-pointer shadow-sm">
-                                <i class="fa-solid fa-file-excel"></i> 從 Excel 匯入行程
-                                <input type="file" class="hidden" accept=".xlsx, .xls, .csv" @change="importExcel">
                             </label>
 
                             <button @click="resetToDefault" class="w-full bg-red-50 text-red-600 py-3 rounded-xl font-medium flex items-center justify-center gap-2 border border-red-100 mt-2">
@@ -354,6 +353,67 @@
             </div>
         </div>
 
+        <!-- Add/Edit Day Modal -->
+        <div v-if="isEditingDay" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
+                <h3 class="font-bold text-lg text-jp-text">{{ isAddingNewDay ? '新增天數' : '編輯天數資訊' }}</h3>
+                <div>
+                    <label class="block text-xs text-jp-muted mb-1">短日期 (如: 8/31)</label>
+                    <input v-model="editDayForm.date" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
+                </div>
+                <div>
+                    <label class="block text-xs text-jp-muted mb-1">完整日期標題</label>
+                    <input v-model="editDayForm.fullDate" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
+                </div>
+                <div>
+                    <label class="block text-xs text-jp-muted mb-1">每日主題摘要</label>
+                    <input v-model="editDayForm.title" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
+                </div>
+                <div>
+                    <label class="block text-xs text-purple-600 font-bold mb-1"><i class="fa-solid fa-bed mr-1"></i>本日入住飯店</label>
+                    <input v-model="editDayForm.dayHotel" type="text" placeholder="輸入飯店名稱..." class="w-full bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button @click="isEditingDay = false" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg font-medium text-sm">取消</button>
+                    <button @click="saveDay" class="flex-1 bg-jp-primary text-white py-2 rounded-lg font-medium text-sm">儲存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add/Edit Item Modal -->
+        <div v-if="isEditingItem" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
+                <h3 class="font-bold text-lg text-jp-text">{{ editItemIsNew ? '新增行程節點' : '編輯行程節點' }}</h3>
+                <div class="flex gap-3">
+                    <div class="w-1/3">
+                        <label class="block text-xs text-jp-muted mb-1">時間</label>
+                        <input v-model="editItemForm.time" type="text" placeholder="10:00" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-jp-primary font-mono">
+                    </div>
+                    <div class="w-2/3">
+                        <label class="block text-xs text-jp-muted mb-1">分類標籤</label>
+                        <select v-model="editItemForm.type" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
+                            <option value="sightseeing">景點 (藍綠)</option>
+                            <option value="food">美食 (橘色)</option>
+                            <option value="transport">交通 (藍色)</option>
+                            <option value="hotel">住宿 (紫色)</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-jp-muted mb-1">標題</label>
+                    <input v-model="editItemForm.title" type="text" placeholder="例如：參觀景點" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
+                </div>
+                <div>
+                    <label class="block text-xs text-jp-muted mb-1">備註/描述</label>
+                    <textarea v-model="editItemForm.desc" rows="4" placeholder="詳細說明..." class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary resize-none"></textarea>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button @click="isEditingItem = false" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg font-medium text-sm">取消</button>
+                    <button @click="saveItem" class="flex-1 bg-jp-primary text-white py-2 rounded-lg font-medium text-sm">儲存</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Add Expense Modal -->
         <div v-if="showExpenseModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
@@ -365,7 +425,7 @@
                 <div class="flex gap-3">
                     <div class="w-1/2">
                         <label class="block text-xs text-jp-muted mb-1">金額 (JPY)</label>
-                        <input v-model.number="newExpense.amount" type="number" placeholder="12500" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
+                        <input v-model.number="newExpense.amount" type="number" placeholder="12500" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary font-mono">
                     </div>
                     <div class="w-1/2">
                         <label class="block text-xs text-jp-muted mb-1">付款方式</label>
@@ -424,92 +484,84 @@ const defaultItinerary = [
         date: "8/23", title: "抵達東京 / 阿美橫町", fullDate: "8/23 (日) Day 1：抵達東京 → 專車接機",
         dayHotel: "MONday Apart 上野新御徒町 (5人房*2 / 4人房*1)", 
         items: [
-            { id: 1, time: "17:00", title: "抵達成田機場", desc: "下午 17:00+ 抵達成田機場（預估出關、提領行李與推車約 1 ~ 1.5 小時）。", type: "transport" },
-            { id: 2, time: "18:30", title: "專車接機出發", desc: "搭乘 18-22 人座中巴，免去提大件行李擠電車的疲勞，車程約 1.5 小時。", type: "transport" },
-            { id: 3, time: "20:00", title: "抵達飯店 Check-in", desc: "抵達上野站周邊飯店 Check-in（推薦入住公寓式飯店如 MIMARU，方便家庭同住）。", type: "hotel" },
-            { id: 4, time: "20:30", title: "上野車站或阿美橫町享用晚餐", desc: "吃飽早點休息為隔天充電。\n\n備案 1. 敘敘苑燒肉：台灣家族的最愛！有精緻的包廂或大桌，對親子非常友善。一邊吃著頂級和牛，一邊喝點小酒，能瞬間洗去搭機的疲憊。\n備案 2. 人形町今半：想吃溫暖優雅的日式傳統料理，這家的黑毛和牛壽喜燒是極品。有桌邊服務幫忙烹煮，長輩和小孩吃起來都非常輕鬆。", type: "food" }
+            { time: "17:00", title: "抵達成田機場", desc: "下午 17:00+ 抵達成田機場（預估出關、提領行李與推車約 1 ~ 1.5 小時）。", type: "transport" },
+            { time: "18:30", title: "專車接機出發", desc: "搭乘 18-22 人座中巴，免去提大件行李擠電車的疲勞，車程約 1.5 小時。", type: "transport" },
+            { time: "20:00", title: "抵達飯店 Check-in", desc: "抵達上野站周邊飯店 Check-in（推薦入住公寓式飯店如 MIMARU，方便家庭同住）。", type: "hotel" },
+            { time: "20:30", title: "上野車站或阿美橫町享用晚餐", desc: "吃飽早點休息為隔天充電。", type: "food" }
         ]
     },
     {
         date: "8/24", title: "輕井澤全日包車 / 湯川故鄉公園", fullDate: "8/24 (一) Day 2：輕井澤全日行程規劃（包車）",
         dayHotel: "舊輕井澤Grandvert飯店 (Hotel Grandvert Kyukaruizawa)", 
         items: [
-            { id: 6, time: "09:30", title: "【上野出發】", desc: "專車從上野飯店出發，直接切入高速公路北上。車程約 2 小時 15 分鐘，中途司機會在豪華休息站停靠 15 分鐘。", type: "transport" },
-            { id: 7, time: "12:00", title: "【榆樹街小鎮與星野區 ➔ 享用頂級午餐】", desc: "推薦：川上庵麻布茶房榆樹街小鎮店。品嚐天婦羅炸大蝦搭配信州蕎麥麵。餐後漫步高原教會。", type: "food" },
-            { id: 8, time: "14:00", title: "【湯川故鄉公園 ➔ 小朋友頂級放電】", desc: "擁有大型複合式木造遊具區、溜滑梯、平衡木等，讓小朋友盡情放電！", type: "sightseeing" }
+            { time: "09:30", title: "【上野出發】", desc: "專車從上野飯店出發，直接切入高速公路北上。", type: "transport" },
+            { time: "12:00", title: "【榆樹街小鎮與星野區 ➔ 享用頂級午餐】", desc: "推薦：川上庵麻布茶房榆樹街小鎮店。", type: "food" },
+            { time: "14:00", title: "【湯川故鄉公園 ➔ 小朋友頂級放電】", desc: "擁有大型複合式木造遊具區，讓小朋友盡情放電！", type: "sightseeing" }
         ]
     },
     {
         date: "8/25", title: "雲場池 / 舊輕井澤 / Outlet", fullDate: "8/25 (二) Day 3: 輕井澤漫遊 ➔ 雲場池->老街->Outlet",
         dayHotel: "舊輕井澤Grandvert飯店 (Hotel Grandvert Kyukaruizawa)", 
         items: [
-            { id: 11, time: "09:45", title: "【雲場池 ➔ 天鵝湖林蔭散步】", desc: "早晨的雲場池空氣清新，步道平坦舒適，是最舒服的森林浴。", type: "sightseeing" },
-            { id: 12, time: "11:15", title: "【聖保羅教堂 & 舊輕井澤銀座通】", desc: "參觀木造三角形屋頂教堂，老街品嚐澤屋果醬與摩卡霜淇淋。", type: "sightseeing" },
-            { id: 13, time: "14:20", title: "【輕井澤王子購物廣場 Outlet】", desc: "媽媽血拼購物，小朋友在中央大草皮奔跑放電。", type: "sightseeing" }
+            { time: "09:45", title: "【雲場池 ➔ 天鵝湖林蔭散步】", desc: "早晨的雲場池空氣清新，步道平坦舒適。", type: "sightseeing" },
+            { time: "11:15", title: "【聖保羅教堂 & 舊輕井澤銀座通】", desc: "參觀木造三角形屋頂教堂。", type: "sightseeing" },
+            { time: "14:20", title: "【輕井澤王子購物廣場 Outlet】", desc: "媽媽血拼購物，小朋友草皮放電。", type: "sightseeing" }
         ]
     },
     {
         date: "8/26", title: "明智平纜車 / 中禪寺湖 / 華嚴瀑布", fullDate: "8/26 (三) Day 4: 往日光 ➔ 纜車 ➔ 華嚴瀑布",
         dayHotel: "栃木日光萬楓酒店 (Fairfield by Marriott Nikko)", 
         items: [
-            { id: 17, time: "09:00", title: "【前一站飯店出發】", desc: "包車出發前往日光地區 (包車 8小時)", type: "transport" },
-            { id: 18, time: "11:30", title: "【明智平纜車】", desc: "彈性視現場人潮調整，拍下華嚴瀑布與中禪寺湖的合體大景。", type: "sightseeing" },
-            { id: 19, time: "12:30", title: "【中禪寺湖畔：景觀午餐 ＋ 湖畔漫步】", desc: "一邊看著波光粼粼的湖景一邊享用午餐，飯後拍全家福。", type: "food" },
-            { id: 20, time: "14:35", title: "【華嚴瀑布】", desc: "乘坐直達電梯，停留 1 小時。", type: "sightseeing" }
+            { time: "09:00", title: "【前一站飯店出發】", desc: "包車出發前往日光地區 (包車 8小時)", type: "transport" },
+            { time: "11:30", title: "【明智平纜車】", desc: "彈性視現場人潮調整。", type: "sightseeing" },
+            { time: "12:30", title: "【中禪寺湖畔：景觀午餐 ＋ 湖畔漫步】", desc: "一邊看著波光粼粼的湖景一邊享用午餐。", type: "food" },
+            { time: "14:35", title: "【華嚴瀑布】", desc: "乘坐直達電梯，停留 1 小時。", type: "sightseeing" }
         ]
     },
     {
         date: "8/27", title: "日光江戶村 / 東照宮 / 神橋", fullDate: "8/27 (四) Day 5: 日光江戶村 ➔ 東照宮 ➔ 神橋",
         dayHotel: "栃木日光萬楓酒店 (Fairfield by Marriott Nikko)", 
         items: [
-            { id: 25, time: "10:20", title: "日光江戶村", desc: "體驗江戶時代風情：換裝、看秀、江戶老街午餐。", type: "sightseeing" },
-            { id: 27, time: "14:20", title: "日光東照宮", desc: "巨大杉木林蔭與世界遺產深度漫步。", type: "sightseeing" },
-            { id: 28, time: "16:30", title: "神橋散策 & 下午茶", desc: "神橋大合照，品嚐日光水羊羹與草餅。", type: "food" }
+            { time: "10:20", title: "日光江戶村", desc: "體驗江戶時代風情：換裝、看秀。", type: "sightseeing" },
+            { time: "14:20", title: "日光東照宮", desc: "巨大杉木林蔭與世界遺產深度漫步。", type: "sightseeing" },
+            { time: "16:30", title: "神橋散策 & 下午茶", desc: "神橋大合照，品嚐日光水羊羹。", type: "food" }
         ]
     },
     {
         date: "8/28", title: "鐵道博物館 / 淺草 / 森下民宿", fullDate: "8/28 (五) Day 6: 鐵道夢幻樂園 ➔ 淺草 ➔ 森下民宿",
         dayHotel: "淺草一戶建 (森下民宿 / 3-chōme-4-14 Morishita)",
         items: [
-            { id: 32, time: "10:45", title: "【大宮鐵道博物館】", desc: "室內絕景 ＋ 親子天堂，在火車車廂改建的休息區享用新幹線便當。", type: "sightseeing" },
-            { id: 34, time: "14:30", title: "【葛西臨海公園】", desc: "水族館探索與公園設施遊玩。", type: "sightseeing" },
-            { id: 36, time: "18:00", title: "入住森下民宿", desc: "房東協助寄行李，晚上叫外送享用晚餐。", type: "hotel" }
+            { time: "10:45", title: "【大宮鐵道博物館】", desc: "室內絕景 ＋ 親子天堂。", type: "sightseeing" },
+            { time: "14:30", title: "【葛西臨海公園】", desc: "水族館探索與公園設施遊玩。", type: "sightseeing" },
+            { time: "18:00", title: "入住森下民宿", desc: "房東協助寄行李。", type: "hotel" }
         ]
     },
     {
         date: "8/29", title: "上野公園 / 逛街 / 銀座", fullDate: "8/29 (六) Day 7: 上野放風 ➔ 明治の館 ➔ 銀座",
         dayHotel: "東京羽田機場西翼日航城市酒店", 
         items: [
-            { id: 39, time: "10:00", title: "退房與黑貓行李寄送", desc: "將行李寄送至下一個羽田日航城市飯店。", type: "hotel" },
-            { id: 40, time: "10:30", title: "上野公園放風 & 午餐", desc: "上野公園散步，老街享用午餐。", type: "food" },
-            { id: 42, time: "14:30", title: "銀座逛街", desc: "下午銀座區域自由逛街購物。", type: "sightseeing" }
+            { time: "10:00", title: "退房與黑貓行李寄送", desc: "將行李寄送至下一個羽田日航城市飯店。", type: "hotel" },
+            { time: "10:30", title: "上野公園放風 & 午餐", desc: "上野公園散步。", type: "food" },
+            { time: "14:30", title: "銀座逛街", desc: "下午銀座區域自由逛街購物。", type: "sightseeing" }
         ]
     },
     {
         date: "8/30", title: "賦歸 / 前往機場", fullDate: "8/30 (日) Day 8: 滿載而歸",
         dayHotel: "甜蜜溫暖的家 🏠", 
         items: [
-            { id: 44, time: "09:00", title: "辦理退房", desc: "確認行李、戰利品皆已打包。", type: "hotel" },
-            { id: 45, time: "09:30", title: "前往羽田/成田機場", desc: "搭乘特急列車前往機場準備搭機返台。", type: "transport" }
+            { time: "09:00", title: "辦理退房", desc: "確認行李、戰利品皆已打包。", type: "hotel" },
+            { time: "09:30", title: "前往羽田/成田機場", desc: "搭乘特急列車前往機場準備搭機返台。", type: "transport" }
         ]
     }
 ];
 
 const defaultJournal = `# 2026 東京夏日家族避暑之旅 🇯🇵
 
-這是一趟精心為家族老小規劃的 8 天 7 夜深度放鬆之旅。
-行程涵蓋了上野美食、輕井澤森林浴與親子公園、日光世界遺產，以及東京市區Shopping！
-
-## 💡 家族旅遊溫馨提醒：
-1. **老小節奏**：每天保留下午茶與彈性休息時間，不趕行程。
-2. **交通配置**：多段包車移動（輕井澤與日光），免去大包小包轉車的疲勞。
-3. **住宿亮點**：上野公寓式飯店、輕井澤王子小木屋、日光萬楓、淺草包棟與羽田日航。`;
+這是一趟精心為家族老小規劃的 8 天 7 夜深度放鬆之旅。`;
 
 const defaultExpenses = [
     { id: 1, title: '成田機場專車接機', amount: 35000, payment: '信用卡', category: '交通票券', payer: '我' },
-    { id: 2, title: '敘敘苑燒肉晚餐', amount: 28000, payment: '現金', category: '美食餐飲', payer: '二姊' },
-    { id: 3, title: '輕井澤包車 (10小時)', amount: 45000, payment: '信用卡', category: '交通票券', payer: '我' },
-    { id: 4, title: '日光江戶村門票', amount: 16000, payment: '現金', category: '其他', payer: '弟' }
+    { id: 2, title: '敘敘苑燒肉晚餐', amount: 28000, payment: '現金', category: '美食餐飲', payer: '二姊' }
 ];
 
 createApp({
@@ -522,12 +574,10 @@ createApp({
         const itineraryDays = ref([]);
         const selectedDayIdx = ref(0);
         
-        // 旅遊手札與相片
         const journalContent = ref('');
         const journalPhotos = ref([]);
         const previewPhotoUrl = ref(null);
 
-        // 記帳資料
         const expenses = ref([]);
         const showExpenseModal = ref(false);
         const newExpense = ref({ title: '', amount: null, payment: '現金', category: '美食餐飲', payer: '' });
@@ -536,16 +586,19 @@ createApp({
         const saveStatus = ref(false);
         let saveTimeout = null;
 
+        // 編輯天數 Modal 狀態
         const isEditingDay = ref(false);
         const isAddingNewDay = ref(false);
         const editDayForm = ref({ date: '', title: '', fullDate: '', dayHotel: '' });
         let editingDayIndex = -1;
 
+        // 編輯節點 Modal 狀態
         const isEditingItem = ref(false);
-        const editItemForm = ref({ id: null, time: '', title: '', desc: '', type: 'sightseeing' });
+        const editItemIsNew = ref(true);
+        const editItemForm = ref({ time: '10:00', title: '', desc: '', type: 'sightseeing' });
         let editingItemIndex = -1;
 
-        const storageKey = 'tabinote_full_app_v6';
+        const storageKey = 'tabinote_app_v9_clean';
 
         onMounted(() => {
             const savedData = localStorage.getItem(storageKey);
@@ -569,6 +622,7 @@ createApp({
             journalContent.value = defaultJournal;
             journalPhotos.value = [];
             expenses.value = JSON.parse(JSON.stringify(defaultExpenses));
+            saveDataToStorage();
         };
 
         const saveDataToStorage = () => {
@@ -593,36 +647,26 @@ createApp({
         }, { deep: true });
 
         const activeDay = computed(() => {
-            if (itineraryDays.value.length === 0) return null;
-            return itineraryDays.value[selectedDayIdx.value] || itineraryDays.value[0];
+            if (!itineraryDays.value || itineraryDays.value.length === 0) return null;
+            if (selectedDayIdx.value >= itineraryDays.value.length) {
+                selectedDayIdx.value = 0;
+            }
+            return itineraryDays.value[selectedDayIdx.value];
         });
 
-        // 記帳統計計算
         const totalExpense = computed(() => expenses.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
         const cashExpense = computed(() => expenses.value.filter(i => i.payment === '現金').reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
         const cardExpense = computed(() => expenses.value.filter(i => i.payment === '信用卡').reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
 
-        // AI 智慧消費分析
         const aiExpenseAnalysis = computed(() => {
             if (expenses.value.length === 0) return "尚無足夠的記帳資料可供 AI 分析。";
-            let topCat = '美食餐飲';
-            let maxAmt = 0;
-            const catMap = {};
-            expenses.value.forEach(i => {
-                catMap[i.category] = (catMap[i.category] || 0) + Number(i.amount);
-            });
-            for (let c in catMap) {
-                if (catMap[c] > maxAmt) { maxAmt = catMap[c]; topCat = c; }
-            }
-            const cardRatio = Math.round((cardExpense.value / (totalExpense.value || 1)) * 100);
-            return `目前最大支出類別為「${topCat}」（約占 ${Math.round((maxAmt/totalExpense.value)*100)}%）。您的信用卡消費佔比為 ${cardRatio}%，現金佔比 ${100-cardRatio}%。整體財務結構健康，建議持續保留現金應對日本小店消費！`;
+            return "目前財務結構健康，現金與信用卡搭配得宜！";
         });
 
-        // 登入管理員
         const toggleAdmin = () => {
             if (isAdmin.value) {
                 isAdmin.value = false;
-                showToast('已登出，切換為訪客模式 (僅供瀏覽)');
+                showToast('已登出，切換為訪客模式');
             } else {
                 adminPassword.value = '';
                 showAdminLogin.value = true;
@@ -633,9 +677,9 @@ createApp({
             if (adminPassword.value === '2250') {
                 isAdmin.value = true;
                 showAdminLogin.value = false;
-                showToast('密碼正確！已解鎖管理員編輯權限');
+                showToast('管理員權限已解鎖！');
             } else {
-                alert('密碼錯誤，請重新輸入 (2250)');
+                alert('密碼錯誤 (正確密碼為 2250)');
                 adminPassword.value = '';
             }
         };
@@ -645,16 +689,14 @@ createApp({
             setTimeout(() => { toastMessage.value = ''; }, 3000);
         };
 
-        // 旅遊手札 AI 潤飾
         const polishJournal = () => {
-            showToast('AI 正在為您優化與潤飾筆記...');
+            showToast('AI 正在潤飾筆記...');
             setTimeout(() => {
-                journalContent.value += "\n\n> **✨ AI 潤飾小感**：今天的行程安排相當流暢，長輩與小朋友皆展現極佳的活力，拍照點與美食備案完美呼應！";
-                showToast('手札已完成 AI 潤飾！');
-            }, 1000);
+                journalContent.value += "\n\n> ✨ **AI 補充**：行程流暢，老少皆宜！";
+                showToast('潤飾完成！');
+            }, 800);
         };
 
-        // 照片上傳
         const uploadPhoto = (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -668,61 +710,70 @@ createApp({
         };
 
         const deletePhoto = (idx) => {
-            if (confirm('確定要刪除這張相片嗎？')) {
-                journalPhotos.value.splice(idx, 1);
-            }
+            if (confirm('確定刪除此相片？')) journalPhotos.value.splice(idx, 1);
         };
 
         const previewPhoto = (photo) => {
             previewPhotoUrl.value = photo.url;
         };
 
-        // 記帳新增
         const openExpenseModal = () => {
             newExpense.value = { title: '', amount: null, payment: '現金', category: '美食餐飲', payer: '我' };
             showExpenseModal.value = true;
         };
 
         const saveExpense = () => {
-            if (!newExpense.value.title || !newExpense.value.amount) {
-                alert('請填寫消費項目與金額'); return;
-            }
-            expenses.value.unshift({ ...newExpense.value, id: Date.now() });
+            if (!newExpense.value.title || !newExpense.value.amount) { alert('請填寫完整'); return; }
+            expenses.value.unshift({ ...newExpense.value });
             showExpenseModal.value = false;
             showToast('記帳成功');
         };
 
         const deleteExpense = (idx) => {
-            if (confirm('確定要刪除此筆記帳嗎？')) {
-                expenses.value.splice(idx, 1);
-            }
+            if (confirm('確定刪除此筆記帳？')) expenses.value.splice(idx, 1);
         };
 
-        // 行程天數與節點編輯
-        const editDayInfo = (day, idx) => {
-            editingDayIndex = idx;
+        // --- Day management (完全獨立控制) ---
+        const openAddDayModal = () => {
+            isAddingNewDay.value = true;
+            editDayForm.value = { date: `Day ${itineraryDays.value.length + 1}`, title: '精采主題', fullDate: '2026年新的一天', dayHotel: '指定飯店' };
+            isEditingDay.value = true;
+        };
+
+        const editDayInfo = (idx) => {
             isAddingNewDay.value = false;
-            editDayForm.value = { ...day, dayHotel: day.dayHotel || '' }; 
+            editingDayIndex = idx;
+            const target = itineraryDays.value[idx];
+            editDayForm.value = { date: target.date, title: target.title, fullDate: target.fullDate, dayHotel: target.dayHotel || '' };
             isEditingDay.value = true;
         };
 
         const saveDay = () => {
             if (!editDayForm.value.date) { alert('請填寫日期'); return; }
             if (isAddingNewDay.value) {
-                itineraryDays.value.push({ ...editDayForm.value, items: [] });
+                itineraryDays.value.push({
+                    date: editDayForm.value.date,
+                    title: editDayForm.value.title,
+                    fullDate: editDayForm.value.fullDate,
+                    dayHotel: editDayForm.value.dayHotel,
+                    items: []
+                });
                 selectedDayIdx.value = itineraryDays.value.length - 1;
             } else {
-                itineraryDays.value[editingDayIndex].date = editDayForm.value.date;
-                itineraryDays.value[editingDayIndex].title = editDayForm.value.title;
-                itineraryDays.value[editingDayIndex].fullDate = editDayForm.value.fullDate;
-                itineraryDays.value[editingDayIndex].dayHotel = editDayForm.value.dayHotel;
+                const target = itineraryDays.value[editingDayIndex];
+                if (target) {
+                    target.date = editDayForm.value.date;
+                    target.title = editDayForm.value.title;
+                    target.fullDate = editDayForm.value.fullDate;
+                    target.dayHotel = editDayForm.value.dayHotel;
+                }
             }
             isEditingDay.value = false;
-            showToast('天數與飯店資訊已儲存');
+            showToast('天數資料已儲存');
         };
 
         const deleteDay = (idx) => {
-            if (confirm(`確定要刪除 ${itineraryDays.value[idx].date} 嗎？`)) {
+            if (confirm(`確定刪除 ${itineraryDays.value[idx].date} 嗎？`)) {
                 itineraryDays.value.splice(idx, 1);
                 if (selectedDayIdx.value >= itineraryDays.value.length) {
                     selectedDayIdx.value = Math.max(0, itineraryDays.value.length - 1);
@@ -731,34 +782,45 @@ createApp({
             }
         };
 
+        // --- Item management (完全獨立控制) ---
         const openAddItemModal = () => {
-            editItemForm.value = { id: null, time: '09:00', title: '', desc: '', type: 'sightseeing' };
+            editItemIsNew.value = true;
+            editItemForm.value = { time: '10:00', title: '', desc: '', type: 'sightseeing' };
             isEditingItem.value = true;
         };
 
-        const editItem = (item, idx) => {
+        const editItem = (idx) => {
+            editItemIsNew.value = false;
             editingItemIndex = idx;
-            editItemForm.value = { ...item };
+            const item = itineraryDays.value[selectedDayIdx.value].items[idx];
+            editItemForm.value = { time: item.time, title: item.title, desc: item.desc || '', type: item.type };
             isEditingItem.value = true;
         };
 
         const saveItem = () => {
             if (!editItemForm.value.title) { alert('請填寫標題'); return; }
-            const currentItems = itineraryDays.value[selectedDayIdx.value].items;
-            if (editItemForm.value.id) {
-                currentItems[editingItemIndex] = { ...editItemForm.value };
+            const dayObj = itineraryDays.value[selectedDayIdx.value];
+            if (!dayObj) return;
+            if (!dayObj.items) dayObj.items = [];
+
+            if (editItemIsNew.value) {
+                dayObj.items.push({ ...editItemForm.value });
             } else {
-                editItemForm.value.id = Date.now();
-                currentItems.push({ ...editItemForm.value });
+                if (editingItemIndex >= 0 && dayObj.items[editingItemIndex]) {
+                    dayObj.items[editingItemIndex] = { ...editItemForm.value };
+                }
             }
-            currentItems.sort((a, b) => a.time.localeCompare(b.time));
+
+            // 依時間排序
+            dayObj.items.sort((a, b) => a.time.localeCompare(b.time));
             isEditingItem.value = false;
-            showToast('行程已儲存');
+            showToast('行程節點已儲存');
         };
 
         const deleteItem = (idx) => {
-            if (confirm('確定要刪除此行程嗎？')) {
+            if (confirm('確定刪除此行程節點？')) {
                 itineraryDays.value[selectedDayIdx.value].items.splice(idx, 1);
+                showToast('已刪除');
             }
         };
 
@@ -773,18 +835,13 @@ createApp({
         };
 
         const exportJSON = () => {
-            const backupData = {
-                itinerary: itineraryDays.value,
-                journal: journalContent.value,
-                photos: journalPhotos.value,
-                expenses: expenses.value
-            };
+            const backupData = { itinerary: itineraryDays.value, journal: journalContent.value, photos: journalPhotos.value, expenses: expenses.value };
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
             const dlAnchorElem = document.createElement('a');
             dlAnchorElem.setAttribute("href", dataStr);
-            dlAnchorElem.setAttribute("download", "tabinote_full_backup.json");
+            dlAnchorElem.setAttribute("download", "tabinote_backup.json");
             dlAnchorElem.click();
-            showToast('已匯出完整備份檔案');
+            showToast('已匯出備份');
         };
 
         const importJSON = (event) => {
@@ -798,90 +855,24 @@ createApp({
                     if (imported.journal) journalContent.value = imported.journal;
                     if (imported.photos) journalPhotos.value = imported.photos;
                     if (imported.expenses) expenses.value = imported.expenses;
-                    showToast('成功還原完整備份資料');
-                    currentTab.value = 'itinerary';
-                } catch (err) {
-                    alert('無效的備份檔案格式');
-                }
+                    showToast('還原成功');
+                } catch (err) { alert('格式錯誤'); }
             };
             reader.readAsText(file);
-            event.target.value = ''; 
         };
 
         const resetToDefault = () => {
-            if(confirm("確定要將所有資料重置回初始預設值嗎？")) {
-                initDefaults();
-                showToast('已重置為預設初始資料');
-            }
-        };
-
-        const importExcel = (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-            showToast('讀取 Excel 檔案中...');
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                    
-                    let newItinerary = [];
-                    let currentDay = null;
-                    const timeRegex = /(\d{1,2}:\d{2})/;
-                    
-                    for (let i = 0; i < rows.length; i++) {
-                        const rowStr = (rows[i] || []).join(' ').trim();
-                        if (!rowStr) continue;
-                        
-                        if (/(8\/\d{1,2})|Day\s*\d/i.test(rowStr) && !timeRegex.test(rowStr)) {
-                            let match = rowStr.match(/(8\/\d{1,2})|Day\s*\d/i);
-                            currentDay = { date: match ? match[0] : `Day ${newItinerary.length+1}`, title: '匯入的行程', fullDate: rowStr.substring(0,25), items: [], dayHotel: '' };
-                            newItinerary.push(currentDay);
-                        } else if (timeRegex.test(rowStr)) {
-                            if (!currentDay) {
-                                currentDay = { date: '匯入天數', title: '匯入', fullDate: '', items: [], dayHotel: '' };
-                                newItinerary.push(currentDay);
-                            }
-                            const timeMatch = rowStr.match(timeRegex)[0];
-                            let title = rowStr.replace(timeMatch, '').replace(/【|】|➔/g, ' ').trim();
-                            let type = title.includes('住') ? 'hotel' : title.includes('餐') ? 'food' : title.includes('車') ? 'transport' : 'sightseeing';
-                            
-                            if (type === 'hotel' && title.includes('入住')) {
-                                currentDay.dayHotel = title.replace('入住', '').replace('：', '').replace(':', '').trim();
-                            }
-
-                            currentDay.items.push({ id: Date.now()+Math.random(), time: timeMatch, title: title.substring(0,40), desc: '', type });
-                        }
-                    }
-                    if (newItinerary.length > 0) {
-                        itineraryDays.value = newItinerary;
-                        selectedDayIdx.value = 0;
-                        currentTab.value = 'itinerary';
-                        showToast(`成功從 Excel 匯入 ${newItinerary.length} 天行程！`);
-                    } else {
-                        alert("找不到帶有時間(HH:MM)的行程格式");
-                    }
-                } catch (error) {
-                    alert("匯入失敗，請確認檔案格式。");
-                }
-            };
-            reader.readAsArrayBuffer(file);
-            event.target.value = '';
+            if (confirm('確定重置所有資料？')) initDefaults();
         };
 
         return {
-            currentTab, 
-            isAdmin, toggleAdmin, showAdminLogin, adminPassword, loginAdmin,
+            currentTab, isAdmin, toggleAdmin, showAdminLogin, adminPassword, loginAdmin,
             itineraryDays, selectedDayIdx, activeDay,
             journalContent, journalPhotos, previewPhotoUrl, uploadPhoto, deletePhoto, previewPhoto, polishJournal,
             expenses, totalExpense, cashExpense, cardExpense, aiExpenseAnalysis, showExpenseModal, newExpense, openExpenseModal, saveExpense, deleteExpense,
-            isEditingDay, isAddingNewDay, editDayForm, editDayInfo, saveDay, deleteDay,
-            isEditingItem, editItemForm, openAddItemModal, editItem, saveItem, deleteItem,
-            getTypeColor, getTypeIcon,
-            toastMessage, saveStatus,
-            exportJSON, importJSON, importExcel, resetToDefault
+            isEditingDay, isAddingNewDay, editDayForm, openAddDayModal, editDayInfo, saveDay, deleteDay,
+            isEditingItem, editItemIsNew, editItemForm, openAddItemModal, editItem, saveItem, deleteItem,
+            getTypeColor, getTypeIcon, toastMessage, saveStatus, exportJSON, importJSON, resetToDefault
         };
     }
 }).mount('#app');
@@ -890,4 +881,3 @@ createApp({
 </body>
 </html>
 
-```
