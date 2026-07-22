@@ -1,886 +1,235 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TabiNote 旅之手札 | 雲端即時同步版</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Vue 3 -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- SheetJS (Excel Parsing) -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
-    
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        window.FB = { initializeApp, getAuth, signInAnonymously, getFirestore, doc, setDoc, getDoc, onSnapshot };
-        window.dispatchEvent(new Event('fb-ready'));
-    </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家族旅之手札 ✈️</title>
+  <style>
+    :root {
+      --primary-color: #4f46e5;
+      --bg-color: #f3f4f6;
+      --card-bg: #ffffff;
+      --text-color: #1f2937;
+    }
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'jp-bg': '#F7F5F0',
-                        'jp-card': '#FFFFFF',
-                        'jp-primary': '#4A5D4E',
-                        'jp-accent': '#D9896A',
-                        'jp-text': '#333333',
-                        'jp-muted': '#888888',
-                        'jp-border': '#E5E0D8'
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background-color: #4A5D4E;
-            margin: 0;
-            overscroll-behavior: none;
-        }
-        #app-container {
-            max-width: 480px;
-            margin: 0 auto;
-            background-color: #F7F5F0;
-            min-height: 100vh;
-            box-shadow: 0 0 20px rgba(0,0,0,0.15);
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        .timeline-line {
-            position: absolute;
-            left: 1.25rem;
-            top: 2rem;
-            bottom: -1rem;
-            width: 2px;
-            background-color: #E5E0D8;
-            z-index: 0;
-        }
-        .timeline-item:last-child .timeline-line { display: none; }
-        
-        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-        .fade-enter-from, .fade-leave-to { opacity: 0; }
-    </style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+      background: var(--card-bg);
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-top: 0;
+      color: var(--primary-color);
+      text-align: center;
+    }
+
+    .status-bar {
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background-color: #e5e7eb;
+      margin-bottom: 20px;
+      color: #4b5563;
+    }
+
+    .status-bar.online {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--primary-color);
+    }
+
+    button {
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #4338ca;
+    }
+
+    ul {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background-color: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      word-break: break-all;
+    }
+
+    .delete-btn {
+      background-color: #ef4444;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      margin-left: 10px;
+    }
+
+    .delete-btn:hover {
+      background-color: #dc2626;
+    }
+  </style>
 </head>
 <body>
 
-<div id="app">
-    <div id="app-container">
-        
-        <!-- Header -->
-        <header class="bg-jp-bg sticky top-0 z-40 px-5 pt-6 pb-3 flex justify-between items-center border-b border-jp-border">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-compass text-jp-accent text-xl"></i>
-                <h1 class="text-lg font-bold text-jp-text tracking-wider">旅之手札 <span class="text-xs font-normal text-jp-muted ml-1">雲端即時同步</span></h1>
-            </div>
-            <div class="flex flex-col items-end gap-1">
-                <div @click="toggleAdmin" class="cursor-pointer rounded-full px-3 py-1.5 flex items-center gap-2 transition-colors border shadow-sm" :class="isAdmin ? 'bg-jp-primary text-white border-jp-primary' : 'bg-white text-gray-500 border-gray-200'">
-                    <i class="fa-solid text-xs" :class="isAdmin ? 'fa-unlock' : 'fa-lock'"></i>
-                    <span class="text-xs font-bold">{{ isAdmin ? '管理員 (已解鎖)' : '訪客 (點擊解鎖)' }}</span>
-                </div>
-                <Transition name="fade">
-                    <span v-if="saveStatus" class="text-[10px] text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded-full mt-1">
-                        <i class="fa-solid fa-cloud-arrow-up mr-1"></i>雲端同步中...
-                    </span>
-                </Transition>
-            </div>
-        </header>
+  <div class="container">
+    <h1>✈️ 家族旅之手札</h1>
+    <div id="status" class="status-bar">連線中...</div>
 
-        <!-- Main Content Area -->
-        <main class="flex-1 overflow-y-auto hide-scrollbar pb-24">
-            
-            <!-- Tab: Itinerary (行程表) -->
-            <div v-show="currentTab === 'itinerary'" class="p-4 space-y-4">
-                
-                <div v-if="isAdmin" class="bg-jp-primary/10 border border-jp-primary/30 rounded-xl p-3 flex justify-between items-center">
-                    <span class="text-xs font-bold text-jp-primary"><i class="fa-solid fa-screwdriver-wrench mr-1"></i>管理員模式已啟用</span>
-                    <button @click="openAddDayModal" class="bg-jp-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                        <i class="fa-solid fa-plus"></i> 新增一天行程
-                    </button>
-                </div>
+    <form id="schedule-form" class="input-group">
+      <input type="text" id="schedule-input" placeholder="輸入新行程（例如：10:00 抵達東京車站）" required>
+      <button type="submit">新增</button>
+    </form>
 
-                <div class="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
-                    <button v-for="(day, index) in itineraryDays" :key="index"
-                            @click="selectedDayIdx = index"
-                            class="shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border"
-                            :class="selectedDayIdx === index ? 'bg-jp-primary text-white border-jp-primary shadow-md' : 'bg-white text-jp-muted border-jp-border'">
-                        {{ day.date }}
-                    </button>
-                </div>
+    <ul id="schedule-list"></ul>
+  </div>
 
-                <div v-if="itineraryDays.length > 0 && activeDay" class="bg-jp-card rounded-2xl shadow-sm border border-jp-border p-5 relative">
-                    <div class="flex justify-between items-start mb-6">
-                        <div>
-                            <h2 class="text-xl font-bold text-jp-text">{{ activeDay.fullDate }}</h2>
-                            <p class="text-sm text-jp-muted mt-1">{{ activeDay.title }}</p>
-                        </div>
-                        <div class="flex gap-2" v-if="isAdmin">
-                            <button @click="editDayInfo(selectedDayIdx)" class="text-jp-muted hover:text-jp-primary bg-gray-100 p-2 rounded-full shadow-sm" title="編輯當天資訊">
-                                <i class="fa-solid fa-pen text-xs"></i>
-                            </button>
-                            <button @click="deleteDay(selectedDayIdx)" class="text-jp-muted hover:text-red-500 bg-gray-100 p-2 rounded-full shadow-sm" title="刪除整天">
-                                <i class="fa-solid fa-trash text-xs"></i>
-                            </button>
-                        </div>
-                    </div>
+  <!-- Firebase 模組化 SDK (CDN) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-                    <!-- Timeline -->
-                    <div class="space-y-0 relative">
-                        <div v-if="!activeDay.items || activeDay.items.length === 0" class="text-center text-jp-muted py-6 text-sm">
-                            目前沒有行程，請點擊下方按鈕新增。
-                        </div>
-                        <div v-for="(item, idx) in activeDay.items" :key="idx" class="timeline-item relative pl-12 pb-6">
-                            <div class="timeline-line"></div>
-                            <div class="absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center z-10"
-                                 :class="getTypeColor(item.type)">
-                                <i :class="getTypeIcon(item.type)" class="text-[10px] text-white"></i>
-                            </div>
+    // 填入你專屬的 Firebase 設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyAq34fJXWQxDqk2q9QYWSUlABQSmTxOCk4",
+      authDomain: "gen-lang-client-0983580961.firebaseapp.com",
+      projectId: "gen-lang-client-0983580961",
+      storageBucket: "gen-lang-client-0983580961.firebasestorage.app",
+      messagingSenderId: "939696110041",
+      appId: "1:939696110041:web:48584ca49350629daf81c8",
+      measurementId: "G-P24YSNX84R"
+    };
 
-                            <div class="bg-white border border-gray-100 p-3 rounded-xl shadow-sm relative group">
-                                <div class="flex justify-between items-start">
-                                    <div class="font-mono text-sm font-bold text-jp-primary">{{ item.time }}</div>
-                                    <div class="flex gap-2" v-if="isAdmin">
-                                        <button @click="editItem(idx)" class="text-gray-400 hover:text-jp-primary p-1" title="修改"><i class="fa-solid fa-pen-to-square"></i></button>
-                                        <button @click="deleteItem(idx)" class="text-gray-400 hover:text-red-500 p-1" title="刪除"><i class="fa-solid fa-trash"></i></button>
-                                    </div>
-                                </div>
-                                <h3 class="text-base font-bold text-jp-text mt-1">{{ item.title }}</h3>
-                                <p v-if="item.desc" class="text-sm text-jp-muted mt-1.5 leading-relaxed whitespace-pre-line">{{ item.desc }}</p>
-                                
-                                <div class="mt-3 flex gap-2">
-                                    <a :href="`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.title)}`" target="_blank" class="inline-block bg-gray-50 text-gray-500 px-2 py-1 rounded text-xs hover:bg-gray-100 transition-colors">
-                                        <i class="fa-solid fa-map-location-dot mr-1"></i> Google 地圖
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <button v-if="isAdmin" @click="openAddItemModal" class="w-full mt-2 mb-6 py-3.5 border-2 border-dashed border-jp-primary/40 text-jp-primary rounded-xl hover:bg-jp-primary/5 transition-colors flex items-center justify-center gap-2 font-bold text-sm">
-                        <i class="fa-solid fa-circle-plus text-base"></i> 新增此天的行程節點
-                    </button>
+    // 初始化 Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-                    <!-- Hotel Footer -->
-                    <div v-if="activeDay.dayHotel" class="mt-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-100/50 flex items-center gap-4 shadow-sm relative overflow-hidden">
-                        <div class="absolute right-0 top-0 opacity-5 text-6xl -mt-2 -mr-2 text-purple-900"><i class="fa-solid fa-bed"></i></div>
-                        <div class="bg-white text-purple-500 w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm border border-purple-100 z-10">
-                            <i class="fa-solid fa-hotel text-lg"></i>
-                        </div>
-                        <div class="z-10 flex-1">
-                            <div class="text-[11px] text-purple-600/80 font-bold mb-1 tracking-widest uppercase"><i class="fa-solid fa-moon mr-1"></i>本日入住飯店</div>
-                            <div class="text-sm font-bold text-gray-800 leading-snug">{{ activeDay.dayHotel }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    const statusEl = document.getElementById("status");
+    const formEl = document.getElementById("schedule-form");
+    const inputEl = document.getElementById("schedule-input");
+    const listEl = document.getElementById("schedule-list");
 
-            <!-- Tab: Journal (旅遊手札) -->
-            <div v-show="currentTab === 'journal'" class="p-4 space-y-4">
-                <div class="bg-jp-card rounded-2xl shadow-sm border border-jp-border p-5 space-y-4">
-                    <div class="flex justify-between items-center border-b pb-3">
-                        <h2 class="text-lg font-bold text-jp-text"><i class="fa-solid fa-book-open mr-2 text-jp-accent"></i>家族旅遊手札</h2>
-                        <button v-if="isAdmin" @click="polishJournal" class="bg-jp-accent text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> AI 潤飾筆記
-                        </button>
-                    </div>
-                    
-                    <div>
-                        <textarea v-model="journalContent" rows="8" placeholder="在此記錄每天的心情、花費小感..." class="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-jp-primary leading-relaxed resize-none"></textarea>
-                    </div>
+    // 1. 自動進行匿名身份驗證（滿足 Security Rules 要求）
+    signInAnonymously(auth).catch((error) => {
+      console.error("匿名認證失敗:", error);
+      statusEl.textContent = "❌ 認證失敗，請檢查 Security Rules 設定";
+      statusEl.style.backgroundColor = "#fde8e8";
+    });
 
-                    <div class="border-t pt-4">
-                        <div class="flex justify-between items-center mb-3">
-                            <span class="text-xs font-bold text-jp-muted uppercase tracking-wider">相片回憶錄</span>
-                            <label v-if="isAdmin" class="cursor-pointer bg-gray-100 text-jp-text px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 hover:bg-gray-200">
-                                <i class="fa-solid fa-image text-jp-primary"></i> 上傳相片
-                                <input type="file" class="hidden" accept="image/*" @change="uploadPhoto">
-                            </label>
-                        </div>
-                        
-                        <div v-if="journalPhotos.length === 0" class="text-center py-6 text-xs text-jp-muted bg-gray-50 rounded-xl border border-dashed">
-                            尚未上傳相片，記錄您的精采時刻吧！
-                        </div>
-                        <div v-else class="grid grid-cols-3 gap-2">
-                            <div v-for="(photo, pIdx) in journalPhotos" :key="pIdx" class="relative group aspect-square rounded-xl overflow-hidden border bg-gray-100 shadow-sm">
-                                <img :src="photo.url" @click="previewPhoto(photo)" class="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300">
-                                <button v-if="isAdmin" @click="deletePhoto(pIdx)" class="absolute top-1 right-1 bg-black/60 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <i class="fa-solid fa-xmark"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    // 2. 監聽認證狀態，成功後開啟即時資料庫監聽
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        statusEl.textContent = "🟢 即時同步連線中";
+        statusEl.classList.add("online");
 
-            <!-- Tab: Expense (記帳功能) -->
-            <div v-show="currentTab === 'expense'" class="p-4 space-y-4">
-                <div class="bg-gradient-to-br from-jp-primary to-gray-800 text-white rounded-2xl p-5 shadow-md space-y-3">
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs text-gray-200 uppercase tracking-widest"><i class="fa-solid fa-wallet mr-1"></i>總消費金額 (JPY)</span>
-                        <button v-if="isAdmin" @click="openExpenseModal()" class="bg-white/25 hover:bg-white/40 text-white px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1 backdrop-blur-sm">
-                            <i class="fa-solid fa-plus"></i> 記一筆
-                        </button>
-                    </div>
-                    <div class="text-3xl font-extrabold font-mono">¥ {{ totalExpense.toLocaleString() }}</div>
-                    
-                    <div class="flex gap-4 pt-2 border-t border-white/10 text-xs text-gray-200">
-                        <div>現金: <span class="font-bold text-white font-mono">¥ {{ cashExpense.toLocaleString() }}</span></div>
-                        <div>信用卡: <span class="font-bold text-white font-mono">¥ {{ cardExpense.toLocaleString() }}</span></div>
-                    </div>
-                </div>
+        // 啟動 Cloud Firestore 即時動態監聽
+        listenToSchedules();
+      }
+    });
 
-                <div class="bg-jp-card rounded-2xl shadow-sm border border-jp-border p-4">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-xs font-bold text-jp-text uppercase tracking-wider"><i class="fa-solid fa-chart-pie mr-1.5 text-jp-accent"></i>消費結構分析</h3>
-                        <span class="text-[10px] bg-jp-primary/10 text-jp-primary px-2 py-0.5 rounded-full font-bold">AI 智慧小幫手</span>
-                    </div>
-                    <p class="text-xs text-jp-muted leading-relaxed">{{ aiExpenseAnalysis }}</p>
-                </div>
+    // 3. 即時資料監聽 (onSnapshot)
+    function listenToSchedules() {
+      const q = query(collection(db, "schedules"), orderBy("createdAt", "asc"));
 
-                <div class="bg-jp-card rounded-2xl shadow-sm border border-jp-border p-4 space-y-3">
-                    <h3 class="text-xs font-bold text-jp-text uppercase tracking-wider mb-2">消費明細列表</h3>
-                    
-                    <div v-if="expenses.length === 0" class="text-center py-8 text-xs text-jp-muted">
-                        目前沒有記帳資料。
-                    </div>
-                    
-                    <div v-for="(item, eIdx) in expenses" :key="eIdx" class="flex justify-between items-center p-3 rounded-xl bg-gray-50 border border-gray-100">
-                        <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs shadow-sm"
-                                 :class="item.payment === '現金' ? 'bg-emerald-600' : 'bg-blue-600'">
-                                <i :class="item.payment === '現金' ? 'fa-solid fa-money-bill-wave' : 'fa-solid fa-credit-card'"></i>
-                            </div>
-                            <div>
-                                <div class="text-sm font-bold text-gray-800">{{ item.title }}</div>
-                                <div class="text-[11px] text-jp-muted flex gap-2 mt-0.5">
-                                    <span>{{ item.category }}</span>
-                                    <span>•</span>
-                                    <span>{{ item.payment }}</span>
-                                    <span v-if="item.payer">({{ item.payer }})</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <div class="text-sm font-bold text-jp-primary font-mono">¥ {{ Number(item.amount).toLocaleString() }}</div>
-                            <button v-if="isAdmin" @click="deleteExpense(eIdx)" class="text-gray-300 hover:text-red-500 text-xs">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+      onSnapshot(q, (snapshot) => {
+        listEl.innerHTML = "";
 
-            <!-- Tab: Settings / Export -->
-            <div v-show="currentTab === 'settings'" class="p-4 space-y-4">
-                <div class="bg-jp-card rounded-2xl shadow-sm border border-jp-border p-5">
-                    <h2 class="text-lg font-bold text-jp-text mb-4 border-b pb-2"><i class="fa-solid fa-database mr-2 text-jp-accent"></i>雲端資料管理</h2>
-                    
-                    <div class="bg-emerald-50 text-emerald-800 p-3 rounded-xl text-xs mb-4 leading-relaxed border border-emerald-200">
-                        <i class="fa-solid fa-cloud-arrow-up mr-1"></i> 您已連線至 Firebase 雲端資料庫。全體親友開啟此網頁將即時同步！
-                    </div>
+        snapshot.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          const li = document.createElement("li");
 
-                    <div class="space-y-4">
-                        <button @click="exportJSON" class="w-full bg-jp-primary text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2 shadow-sm">
-                            <i class="fa-solid fa-download"></i> 匯出備份 (JSON)
-                        </button>
+          const textSpan = document.createElement("span");
+          textSpan.textContent = data.text;
 
-                        <div class="border-t pt-4 mt-2 space-y-4">
-                            <button v-if="isAdmin" @click="resetToDefault" class="w-full bg-red-50 text-red-600 py-3 rounded-xl font-medium flex items-center justify-center gap-2 border border-red-100">
-                                <i class="fa-solid fa-rotate-left"></i> 重置為預設雲端初始行程
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "刪除";
+          delBtn.className = "delete-btn";
+          delBtn.onclick = () => deleteSchedule(docSnapshot.id);
 
-        <!-- Bottom Navigation -->
-        <nav class="bg-white border-t border-jp-border fixed bottom-0 w-full max-w-[480px] pb-safe z-40">
-            <div class="flex justify-around items-center h-16">
-                <button @click="currentTab = 'itinerary'" class="flex flex-col items-center justify-center w-full h-full transition-colors" :class="currentTab === 'itinerary' ? 'text-jp-primary' : 'text-gray-400'">
-                    <i class="fa-solid fa-map-location-dot text-base mb-1"></i>
-                    <span class="text-[10px] font-bold">行程表</span>
-                </button>
-                <button @click="currentTab = 'journal'" class="flex flex-col items-center justify-center w-full h-full transition-colors" :class="currentTab === 'journal' ? 'text-jp-primary' : 'text-gray-400'">
-                    <i class="fa-solid fa-book-open text-base mb-1"></i>
-                    <span class="text-[10px] font-bold">旅遊手札</span>
-                </button>
-                <button @click="currentTab = 'expense'" class="flex flex-col items-center justify-center w-full h-full transition-colors" :class="currentTab === 'expense' ? 'text-jp-primary' : 'text-gray-400'">
-                    <i class="fa-solid fa-wallet text-base mb-1"></i>
-                    <span class="text-[10px] font-bold">記帳</span>
-                </button>
-                <button @click="currentTab = 'settings'" class="flex flex-col items-center justify-center w-full h-full transition-colors" :class="currentTab === 'settings' ? 'text-jp-primary' : 'text-gray-400'">
-                    <i class="fa-solid fa-gear text-base mb-1"></i>
-                    <span class="text-[10px] font-bold">管理/備份</span>
-                </button>
-            </div>
-        </nav>
-
-        <!-- Admin Login Modal -->
-        <div v-if="showAdminLogin" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-xl">
-                <div class="flex items-center justify-center w-12 h-12 rounded-full bg-jp-primary/10 mx-auto mb-2">
-                    <i class="fa-solid fa-lock text-jp-primary text-xl"></i>
-                </div>
-                <h3 class="font-bold text-lg text-jp-text text-center">管理員身分驗證</h3>
-                <p class="text-xs text-jp-muted text-center mb-4">請輸入密碼以取得行程編輯權限</p>
-                <div>
-                    <input v-model="adminPassword" type="password" placeholder="請輸入密碼 (2250)" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-center text-lg tracking-widest focus:outline-none focus:border-jp-primary" @keyup.enter="loginAdmin">
-                </div>
-                <div class="flex gap-3 pt-4">
-                    <button @click="showAdminLogin = false" class="flex-1 bg-gray-100 text-gray-600 py-2.5 rounded-lg font-medium text-sm transition hover:bg-gray-200">取消</button>
-                    <button @click="loginAdmin" class="flex-1 bg-jp-primary text-white py-2.5 rounded-lg font-medium text-sm transition hover:bg-opacity-90">確認解鎖</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Add/Edit Day Modal -->
-        <div v-if="isEditingDay" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
-                <h3 class="font-bold text-lg text-jp-text">{{ isAddingNewDay ? '新增天數' : '編輯天數資訊' }}</h3>
-                <div>
-                    <label class="block text-xs text-jp-muted mb-1">短日期 (如: 8/31)</label>
-                    <input v-model="editDayForm.date" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
-                </div>
-                <div>
-                    <label class="block text-xs text-jp-muted mb-1">完整日期標題</label>
-                    <input v-model="editDayForm.fullDate" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
-                </div>
-                <div>
-                    <label class="block text-xs text-jp-muted mb-1">每日主題摘要</label>
-                    <input v-model="editDayForm.title" type="text" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
-                </div>
-                <div>
-                    <label class="block text-xs text-purple-600 font-bold mb-1"><i class="fa-solid fa-bed mr-1"></i>本日入住飯店</label>
-                    <input v-model="editDayForm.dayHotel" type="text" placeholder="輸入飯店名稱..." class="w-full bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
-                </div>
-                <div class="flex gap-3 pt-2">
-                    <button @click="isEditingDay = false" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg font-medium text-sm">取消</button>
-                    <button @click="saveDay" class="flex-1 bg-jp-primary text-white py-2 rounded-lg font-medium text-sm">儲存</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Add/Edit Item Modal -->
-        <div v-if="isEditingItem" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
-                <h3 class="font-bold text-lg text-jp-text">{{ editItemIsNew ? '新增行程節點' : '編輯行程節點' }}</h3>
-                <div class="flex gap-3">
-                    <div class="w-1/3">
-                        <label class="block text-xs text-jp-muted mb-1">時間</label>
-                        <input v-model="editItemForm.time" type="text" placeholder="10:00" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-jp-primary font-mono">
-                    </div>
-                    <div class="w-2/3">
-                        <label class="block text-xs text-jp-muted mb-1">分類標籤</label>
-                        <select v-model="editItemForm.type" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
-                            <option value="sightseeing">景點 (藍綠)</option>
-                            <option value="food">美食 (橘色)</option>
-                            <option value="transport">交通 (藍色)</option>
-                            <option value="hotel">住宿 (紫色)</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs text-jp-muted mb-1">標題</label>
-                    <input v-model="editItemForm.title" type="text" placeholder="例如：參觀景點" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
-                </div>
-                <div>
-                    <label class="block text-xs text-jp-muted mb-1">備註/描述</label>
-                    <textarea v-model="editItemForm.desc" rows="4" placeholder="詳細說明..." class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary resize-none"></textarea>
-                </div>
-                <div class="flex gap-3 pt-2">
-                    <button @click="isEditingItem = false" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg font-medium text-sm">取消</button>
-                    <button @click="saveItem" class="flex-1 bg-jp-primary text-white py-2 rounded-lg font-medium text-sm">儲存</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Add Expense Modal -->
-        <div v-if="showExpenseModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
-                <h3 class="font-bold text-lg text-jp-text">新增消費記帳</h3>
-                <div>
-                    <label class="block text-xs text-jp-muted mb-1">消費項目名稱</label>
-                    <input v-model="newExpense.title" type="text" placeholder="例如：敘敘苑燒肉晚餐" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
-                </div>
-                <div class="flex gap-3">
-                    <div class="w-1/2">
-                        <label class="block text-xs text-jp-muted mb-1">金額 (JPY)</label>
-                        <input v-model.number="newExpense.amount" type="number" placeholder="12500" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary font-mono">
-                    </div>
-                    <div class="w-1/2">
-                        <label class="block text-xs text-jp-muted mb-1">付款方式</label>
-                        <select v-model="newExpense.payment" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
-                            <option value="現金">現金 (Cash)</option>
-                            <option value="信用卡">信用卡 (Card)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="flex gap-3">
-                    <div class="w-1/2">
-                        <label class="block text-xs text-jp-muted mb-1">分類</label>
-                        <select v-model="newExpense.category" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
-                            <option value="美食餐飲">美食餐飲</option>
-                            <option value="交通票券">交通票券</option>
-                            <option value="住宿飯店">住宿飯店</option>
-                            <option value="購物伴手禮">購物伴手禮</option>
-                            <option value="其他">其他</option>
-                        </select>
-                    </div>
-                    <div class="w-1/2">
-                        <label class="block text-xs text-jp-muted mb-1">付款人</label>
-                        <input v-model="newExpense.payer" type="text" placeholder="例如：我 / 二姊" class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-jp-primary">
-                    </div>
-                </div>
-                <div class="flex gap-3 pt-2">
-                    <button @click="showExpenseModal = false" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg font-medium text-sm">取消</button>
-                    <button @click="saveExpense" class="flex-1 bg-jp-primary text-white py-2 rounded-lg font-medium text-sm">儲存</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Photo Preview Modal -->
-        <div v-if="previewPhotoUrl" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" @click="previewPhotoUrl = null">
-            <div class="relative max-w-lg w-full">
-                <img :src="previewPhotoUrl" class="w-full rounded-2xl shadow-2xl object-contain max-h-[80vh]">
-                <button class="absolute -top-10 right-0 text-white text-xl p-2"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-        </div>
-
-        <!-- Toast Notification -->
-        <Transition name="fade">
-            <div v-if="toastMessage" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg text-sm z-50 text-center w-11/12 max-w-[400px]">
-                {{ toastMessage }}
-            </div>
-        </Transition>
-
-    </div>
-</div>
-
-<script>
-const defaultItinerary = [
-    {
-        date: "8/23", title: "抵達東京 / 阿美橫町", fullDate: "8/23 (日) Day 1：抵達東京 → 專車接機",
-        dayHotel: "MONday Apart 上野新御徒町 (5人房*2 / 4人房*1)", 
-        items: [
-            { time: "17:00", title: "抵達成田機場", desc: "下午 17:00+ 抵達成田機場（預估出關、提領行李與推車約 1 ~ 1.5 小時）。", type: "transport" },
-            { time: "18:30", title: "專車接機出發", desc: "搭乘 18-22 人座中巴，免去提大件行李擠電車的疲勞，車程約 1.5 小時。", type: "transport" },
-            { time: "20:00", title: "抵達飯店 Check-in", desc: "抵達上野站周邊飯店 Check-in（推薦入住公寓式飯店如 MIMARU，方便家庭同住）。", type: "hotel" },
-            { time: "20:30", title: "上野車站或阿美橫町享用晚餐", desc: "吃飽早點休息為隔天充電。", type: "food" }
-        ]
-    },
-    {
-        date: "8/24", title: "輕井澤全日包車 / 湯川故鄉公園", fullDate: "8/24 (一) Day 2：輕井澤全日行程規劃（包車）",
-        dayHotel: "舊輕井澤Grandvert飯店 (Hotel Grandvert Kyukaruizawa)", 
-        items: [
-            { time: "09:30", title: "【上野出發】", desc: "專車從上野飯店出發，直接切入高速公路北上。", type: "transport" },
-            { time: "12:00", title: "【榆樹街小鎮與星野區 ➔ 享用頂級午餐】", desc: "推薦：川上庵麻布茶房榆樹街小鎮店。", type: "food" },
-            { time: "14:00", title: "【湯川故鄉公園 ➔ 小朋友頂級放電】", desc: "擁有大型複合式木造遊具區，讓小朋友盡情放電！", type: "sightseeing" }
-        ]
-    },
-    {
-        date: "8/25", title: "雲場池 / 舊輕井澤 / Outlet", fullDate: "8/25 (二) Day 3: 輕井澤漫遊 ➔ 雲場池->老街->Outlet",
-        dayHotel: "舊輕井澤Grandvert飯店 (Hotel Grandvert Kyukaruizawa)", 
-        items: [
-            { time: "09:45", title: "【雲場池 ➔ 天鵝湖林蔭散步】", desc: "早晨的雲場池空氣清新，步道平坦舒適。", type: "sightseeing" },
-            { time: "11:15", title: "【聖保羅教堂 & 舊輕井澤銀座通】", desc: "參觀木造三角形屋頂教堂。", type: "sightseeing" },
-            { time: "14:20", title: "【輕井澤王子購物廣場 Outlet】", desc: "媽媽血拼購物，小朋友草皮放電。", type: "sightseeing" }
-        ]
-    },
-    {
-        date: "8/26", title: "明智平纜車 / 中禪寺湖 / 華嚴瀑布", fullDate: "8/26 (三) Day 4: 往日光 ➔ 纜車 ➔ 華嚴瀑布",
-        dayHotel: "栃木日光萬楓酒店 (Fairfield by Marriott Nikko)", 
-        items: [
-            { time: "09:00", title: "【前一站飯店出發】", desc: "包車出發前往日光地區 (包車 8小時)", type: "transport" },
-            { time: "11:30", title: "【明智平纜車】", desc: "彈性視現場人潮調整。", type: "sightseeing" },
-            { time: "12:30", title: "【中禪寺湖畔：景觀午餐 ＋ 湖畔漫步】", desc: "一邊看著波光粼粼的湖景一邊享用午餐。", type: "food" },
-            { time: "14:35", title: "【華嚴瀑布】", desc: "乘坐直達電梯，停留 1 小時。", type: "sightseeing" }
-        ]
-    },
-    {
-        date: "8/27", title: "日光江戶村 / 東照宮 / 神橋", fullDate: "8/27 (四) Day 5: 日光江戶村 ➔ 東照宮 ➔ 神橋",
-        dayHotel: "栃木日光萬楓酒店 (Fairfield by Marriott Nikko)", 
-        items: [
-            { time: "10:20", title: "日光江戶村", desc: "體驗江戶時代風情：換裝、看秀。", type: "sightseeing" },
-            { time: "14:20", title: "日光東照宮", desc: "巨大杉木林蔭與世界遺產深度漫步。", type: "sightseeing" },
-            { time: "16:30", title: "神橋散策 & 下午茶", desc: "神橋大合照，品嚐日光水羊羹。", type: "food" }
-        ]
-    },
-    {
-        date: "8/28", title: "鐵道博物館 / 淺草 / 森下民宿", fullDate: "8/28 (五) Day 6: 鐵道夢幻樂園 ➔ 淺草 ➔ 森下民宿",
-        dayHotel: "淺草一戶建 (森下民宿 / 3-chōme-4-14 Morishita)",
-        items: [
-            { time: "10:45", title: "【大宮鐵道博物館】", desc: "室內絕景 ＋ 親子天堂。", type: "sightseeing" },
-            { time: "14:30", title: "【葛西臨海公園】", desc: "水族館探索與公園設施遊玩。", type: "sightseeing" },
-            { time: "18:00", title: "入住森下民宿", desc: "房東協助寄行李。", type: "hotel" }
-        ]
-    },
-    {
-        date: "8/29", title: "上野公園 / 逛街 / 銀座", fullDate: "8/29 (六) Day 7: 上野放風 ➔ 明治の館 ➔ 銀座",
-        dayHotel: "東京羽田機場西翼日航城市酒店", 
-        items: [
-            { time: "10:00", title: "退房與黑貓行李寄送", desc: "將行李寄送至下一個羽田日航城市飯店。", type: "hotel" },
-            { time: "10:30", title: "上野公園放風 & 午餐", desc: "上野公園散步。", type: "food" },
-            { time: "14:30", title: "銀座逛街", desc: "下午銀座區域自由逛街購物。", type: "sightseeing" }
-        ]
-    },
-    {
-        date: "8/30", title: "賦歸 / 前往機場", fullDate: "8/30 (日) Day 8: 滿載而歸",
-        dayHotel: "甜蜜溫暖的家 🏠", 
-        items: [
-            { time: "09:00", title: "辦理退房", desc: "確認行李、戰利品皆已打包。", type: "hotel" },
-            { time: "09:30", title: "前往羽田/成田機場", desc: "搭乘特急列車前往機場準備搭機返台。", type: "transport" }
-        ]
+          li.appendChild(textSpan);
+          li.appendChild(delBtn);
+          listEl.appendChild(li);
+        });
+      }, (error) => {
+        console.error("即時監聽失敗:", error);
+      });
     }
-];
 
-const defaultJournal = `# 2026 東京夏日家族避暑之旅 🇯🇵\n\n這是一趟精心為家族老小規劃的 8 天 7 夜深度放鬆之旅。`;
-const defaultExpenses = [
-    { id: 1, title: '成田機場專車接機', amount: 35000, payment: '信用卡', category: '交通票券', payer: '我' },
-    { id: 2, title: '敘敘苑燒肉晚餐', amount: 28000, payment: '現金', category: '美食餐飲', payer: '二姊' }
-];
+    // 4. 新增行程至 Firestore
+    formEl.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = inputEl.value.trim();
+      if (!text) return;
 
-window.addEventListener('fb-ready', async () => {
-    const { initializeApp, getAuth, signInAnonymously, getFirestore, doc, setDoc, getDoc, onSnapshot } = window.FB;
-    const { createApp, ref, computed, onMounted, watch } = Vue;
+      try {
+        await addDoc(collection(db, "schedules"), {
+          text: text,
+          createdAt: serverTimestamp()
+        });
+        inputEl.value = "";
+      } catch (error) {
+        console.error("新增行程失敗:", error);
+        alert("新增失敗！請確認 Firestore 的安全規則 (Rules) 已設定為允許讀寫。");
+      }
+    });
 
-    createApp({
-        setup() {
-            const currentTab = ref('itinerary');
-            const isAdmin = ref(false); 
-            const showAdminLogin = ref(false);
-            const adminPassword = ref('');
-
-            const itineraryDays = ref(JSON.parse(JSON.stringify(defaultItinerary)));
-            const selectedDayIdx = ref(0);
-            
-            const journalContent = ref(defaultJournal);
-            const journalPhotos = ref([]);
-            const previewPhotoUrl = ref(null);
-
-            const expenses = ref(JSON.parse(JSON.stringify(defaultExpenses)));
-            const showExpenseModal = ref(false);
-            const newExpense = ref({ title: '', amount: null, payment: '現金', category: '美食餐飲', payer: '' });
-
-            const toastMessage = ref('');
-            const saveStatus = ref(false);
-            let isRemoteUpdate = false;
-
-            const isEditingDay = ref(false);
-            const isAddingNewDay = ref(false);
-            const editDayForm = ref({ date: '', title: '', fullDate: '', dayHotel: '' });
-            let editingDayIndex = -1;
-
-            const isEditingItem = ref(false);
-            const editItemIsNew = ref(true);
-            const editItemForm = ref({ time: '10:00', title: '', desc: '', type: 'sightseeing' });
-            let editingItemIndex = -1;
-
-            let db = null;
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'travel-app-2026';
-            const docRefPath = ['artifacts', appId, 'public', 'data', 'travel_main_data'];
-
-            onMounted(async () => {
-                try {
-                    const firebaseConfig = JSON.parse(__firebase_config);
-                    const app = initializeApp(firebaseConfig);
-                    const auth = getAuth(app);
-                    db = getFirestore(app);
-
-                    await signInAnonymously(auth);
-
-                    const docRef = doc(db, ...docRefPath);
-                    const snap = await getDoc(docRef);
-
-                    if (snap.exists()) {
-                        const cloudData = snap.data();
-                        if (cloudData.itinerary) itineraryDays.value = cloudData.itinerary;
-                        if (cloudData.journal !== undefined) journalContent.value = cloudData.journal;
-                        if (cloudData.photos) journalPhotos.value = cloudData.photos;
-                        if (cloudData.expenses) expenses.value = cloudData.expenses;
-                    } else {
-                        await setDoc(docRef, {
-                            itinerary: itineraryDays.value,
-                            journal: journalContent.value,
-                            photos: journalPhotos.value,
-                            expenses: expenses.value
-                        });
-                    }
-
-                    // Realtime sync listener
-                    onSnapshot(docRef, (docSnap) => {
-                        if (docSnap.exists() && !isRemoteUpdate) {
-                            const remoteData = docSnap.data();
-                            isRemoteUpdate = true;
-                            if (remoteData.itinerary) itineraryDays.value = remoteData.itinerary;
-                            if (remoteData.journal !== undefined) journalContent.value = remoteData.journal;
-                            if (remoteData.photos) journalPhotos.value = remoteData.photos;
-                            if (remoteData.expenses) expenses.value = remoteData.expenses;
-                            setTimeout(() => { isRemoteUpdate = false; }, 300);
-                        }
-                    });
-
-                } catch (e) {
-                    console.error("Firebase sync error:", e);
-                }
-            });
-
-            const syncToCloud = async () => {
-                if (!db || isRemoteUpdate) return;
-                try {
-                    saveStatus.value = true;
-                    const docRef = doc(db, ...docRefPath);
-                    await setDoc(docRef, {
-                        itinerary: itineraryDays.value,
-                        journal: journalContent.value,
-                        photos: journalPhotos.value,
-                        expenses: expenses.value
-                    });
-                    setTimeout(() => { saveStatus.value = false; }, 1000);
-                } catch (e) {
-                    console.error("Cloud save failed:", e);
-                    saveStatus.value = false;
-                }
-            };
-
-            watch([itineraryDays, journalContent, journalPhotos, expenses], () => {
-                syncToCloud();
-            }, { deep: true });
-
-            const activeDay = computed(() => {
-                if (!itineraryDays.value || itineraryDays.value.length === 0) return null;
-                if (selectedDayIdx.value >= itineraryDays.value.length) {
-                    selectedDayIdx.value = 0;
-                }
-                return itineraryDays.value[selectedDayIdx.value];
-            });
-
-            const totalExpense = computed(() => expenses.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
-            const cashExpense = computed(() => expenses.value.filter(i => i.payment === '現金').reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
-            const cardExpense = computed(() => expenses.value.filter(i => i.payment === '信用卡').reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
-
-            const aiExpenseAnalysis = computed(() => {
-                if (expenses.value.length === 0) return "尚無足夠的記帳資料可供 AI 分析。";
-                return "目前財務結構健康，現金與信用卡搭配得宜！";
-            });
-
-            const toggleAdmin = () => {
-                if (isAdmin.value) {
-                    isAdmin.value = false;
-                    showToast('已登出，切換為訪客模式');
-                } else {
-                    adminPassword.value = '';
-                    showAdminLogin.value = true;
-                }
-            };
-
-            const loginAdmin = () => {
-                if (adminPassword.value === '2250') {
-                    isAdmin.value = true;
-                    showAdminLogin.value = false;
-                    showToast('管理員權限已解鎖！');
-                } else {
-                    alert('密碼錯誤 (正確密碼為 2250)');
-                    adminPassword.value = '';
-                }
-            };
-
-            const showToast = (msg) => {
-                toastMessage.value = msg;
-                setTimeout(() => { toastMessage.value = ''; }, 3000);
-            };
-
-            const polishJournal = () => {
-                showToast('AI 正在潤飾筆記...');
-                setTimeout(() => {
-                    journalContent.value += "\n\n> ✨ **AI 補充**：行程流暢，老少皆宜！";
-                    showToast('潤飾完成！');
-                }, 800);
-            };
-
-            const uploadPhoto = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    journalPhotos.value.push({ url: event.target.result, name: file.name });
-                    showToast('相片上傳成功');
-                };
-                reader.readAsDataURL(file);
-                e.target.value = '';
-            };
-
-            const deletePhoto = (idx) => {
-                if (confirm('確定刪除此相片？')) journalPhotos.value.splice(idx, 1);
-            };
-
-            const previewPhoto = (photo) => {
-                previewPhotoUrl.value = photo.url;
-            };
-
-            const openExpenseModal = () => {
-                newExpense.value = { title: '', amount: null, payment: '現金', category: '美食餐飲', payer: '我' };
-                showExpenseModal.value = true;
-            };
-
-            const saveExpense = () => {
-                if (!newExpense.value.title || !newExpense.value.amount) { alert('請填寫完整'); return; }
-                expenses.value.unshift({ ...newExpense.value });
-                showExpenseModal.value = false;
-                showToast('記帳成功');
-            };
-
-            const deleteExpense = (idx) => {
-                if (confirm('確定刪除此筆記帳？')) expenses.value.splice(idx, 1);
-            };
-
-            const openAddDayModal = () => {
-                isAddingNewDay.value = true;
-                editDayForm.value = { date: `Day ${itineraryDays.value.length + 1}`, title: '精采主題', fullDate: '2026年新的一天', dayHotel: '指定飯店' };
-                isEditingDay.value = true;
-            };
-
-            const editDayInfo = (idx) => {
-                isAddingNewDay.value = false;
-                editingDayIndex = idx;
-                const target = itineraryDays.value[idx];
-                editDayForm.value = { date: target.date, title: target.title, fullDate: target.fullDate, dayHotel: target.dayHotel || '' };
-                isEditingDay.value = true;
-            };
-
-            const saveDay = () => {
-                if (!editDayForm.value.date) { alert('請填寫日期'); return; }
-                if (isAddingNewDay.value) {
-                    itineraryDays.value.push({
-                        date: editDayForm.value.date,
-                        title: editDayForm.value.title,
-                        fullDate: editDayForm.value.fullDate,
-                        dayHotel: editDayForm.value.dayHotel,
-                        items: []
-                    });
-                    selectedDayIdx.value = itineraryDays.value.length - 1;
-                } else {
-                    const target = itineraryDays.value[editingDayIndex];
-                    if (target) {
-                        target.date = editDayForm.value.date;
-                        target.title = editDayForm.value.title;
-                        target.fullDate = editDayForm.value.fullDate;
-                        target.dayHotel = editDayForm.value.dayHotel;
-                    }
-                }
-                isEditingDay.value = false;
-                showToast('天數資料已儲存');
-            };
-
-            const deleteDay = (idx) => {
-                if (confirm(`確定刪除 ${itineraryDays.value[idx].date} 嗎？`)) {
-                    itineraryDays.value.splice(idx, 1);
-                    if (selectedDayIdx.value >= itineraryDays.value.length) {
-                        selectedDayIdx.value = Math.max(0, itineraryDays.value.length - 1);
-                    }
-                    showToast('已刪除');
-                }
-            };
-
-            const openAddItemModal = () => {
-                editItemIsNew.value = true;
-                editItemForm.value = { time: '10:00', title: '', desc: '', type: 'sightseeing' };
-                isEditingItem.value = true;
-            };
-
-            const editItem = (idx) => {
-                editItemIsNew.value = false;
-                editingItemIndex = idx;
-                const item = itineraryDays.value[selectedDayIdx.value].items[idx];
-                editItemForm.value = { time: item.time, title: item.title, desc: item.desc || '', type: item.type };
-                isEditingItem.value = true;
-            };
-
-            const saveItem = () => {
-                if (!editItemForm.value.title) { alert('請填寫標題'); return; }
-                const dayObj = itineraryDays.value[selectedDayIdx.value];
-                if (!dayObj) return;
-                if (!dayObj.items) dayObj.items = [];
-
-                if (editItemIsNew.value) {
-                    dayObj.items.push({ ...editItemForm.value });
-                } else {
-                    if (editingItemIndex >= 0 && dayObj.items[editingItemIndex]) {
-                        dayObj.items[editingItemIndex] = { ...editItemForm.value };
-                    }
-                }
-
-                dayObj.items.sort((a, b) => a.time.localeCompare(b.time));
-                isEditingItem.value = false;
-                showToast('行程節點已儲存');
-            };
-
-            const deleteItem = (idx) => {
-                if (confirm('確定刪除此行程節點？')) {
-                    itineraryDays.value[selectedDayIdx.value].items.splice(idx, 1);
-                    showToast('已刪除');
-                }
-            };
-
-            const getTypeColor = (type) => {
-                const colors = { 'sightseeing': 'bg-teal-500', 'food': 'bg-orange-400', 'transport': 'bg-blue-400', 'hotel': 'bg-purple-500' };
-                return colors[type] || 'bg-gray-400';
-            };
-
-            const getTypeIcon = (type) => {
-                const icons = { 'sightseeing': 'fa-solid fa-camera', 'food': 'fa-solid fa-utensils', 'transport': 'fa-solid fa-train', 'hotel': 'fa-solid fa-bed' };
-                return icons[type] || 'fa-solid fa-location-dot';
-            };
-
-            const exportJSON = () => {
-                const backupData = { itinerary: itineraryDays.value, journal: journalContent.value, photos: journalPhotos.value, expenses: expenses.value };
-                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
-                const dlAnchorElem = document.createElement('a');
-                dlAnchorElem.setAttribute("href", dataStr);
-                dlAnchorElem.setAttribute("download", "tabinote_backup.json");
-                dlAnchorElem.click();
-                showToast('已匯出備份');
-            };
-
-            const resetToDefault = async () => {
-                if (confirm('確定重置所有雲端資料？')) {
-                    itineraryDays.value = JSON.parse(JSON.stringify(defaultItinerary));
-                    journalContent.value = defaultJournal;
-                    journalPhotos.value = [];
-                    expenses.value = JSON.parse(JSON.stringify(defaultExpenses));
-                    await syncToCloud();
-                    showToast('雲端資料已重置');
-                }
-            };
-
-            return {
-                currentTab, isAdmin, toggleAdmin, showAdminLogin, adminPassword, loginAdmin,
-                itineraryDays, selectedDayIdx, activeDay,
-                journalContent, journalPhotos, previewPhotoUrl, uploadPhoto, deletePhoto, previewPhoto, polishJournal,
-                expenses, totalExpense, cashExpense, cardExpense, aiExpenseAnalysis, showExpenseModal, newExpense, openExpenseModal, saveExpense, deleteExpense,
-                isEditingDay, isAddingNewDay, editDayForm, openAddDayModal, editDayInfo, saveDay, deleteDay,
-                isEditingItem, editItemIsNew, editItemForm, openAddItemModal, editItem, saveItem, deleteItem,
-                getTypeColor, getTypeIcon, toastMessage, saveStatus, exportJSON, resetToDefault
-            };
-        }
-    }).mount('#app');
-});
-</script>
-
+    // 5. 刪除行程
+    async function deleteSchedule(id) {
+      try {
+        await deleteDoc(doc(docRef = db, "schedules", id));
+      } catch (error) {
+        console.error("刪除行程失敗:", error);
+      }
+    }
+  </script>
 </body>
 </html>
-
