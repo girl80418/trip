@@ -281,7 +281,7 @@
                     <h2 class="text-lg font-bold text-jp-text mb-4 border-b pb-2"><i class="fa-solid fa-database mr-2 text-jp-accent"></i>資料管理與備份</h2>
                     
                     <div class="bg-yellow-50 text-yellow-800 p-3 rounded-xl text-xs mb-4 leading-relaxed border border-yellow-200">
-                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> 您的資料會即時自動儲存。建議點擊「匯出備份」將檔案傳給親友！
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> 修改後建議點擊「匯出備份」下載 JSON 檔，保障您的手動修改永遠不遺失！
                     </div>
 
                     <div class="space-y-4">
@@ -289,25 +289,16 @@
                             <i class="fa-solid fa-download"></i> 匯出完整備份 (JSON)
                         </button>
 
-                        <div v-if="isAdmin" class="border-t pt-4 mt-2 space-y-4">
+                        <div class="border-t pt-4 mt-2 space-y-4">
                             <label class="w-full bg-gray-100 text-jp-text py-3 rounded-xl font-medium flex items-center justify-center gap-2 cursor-pointer border border-gray-200">
                                 <i class="fa-solid fa-upload"></i> 還原備份 (JSON)
                                 <input type="file" class="hidden" accept=".json" @change="importJSON">
                             </label>
 
-                            <button @click="resetToDefault" class="w-full bg-red-50 text-red-600 py-3 rounded-xl font-medium flex items-center justify-center gap-2 border border-red-100 mt-2">
+                            <button v-if="isAdmin" @click="resetToDefault" class="w-full bg-red-50 text-red-600 py-3 rounded-xl font-medium flex items-center justify-center gap-2 border border-red-100 mt-2">
                                 <i class="fa-solid fa-rotate-left"></i> 重置為預設初始資料
                             </button>
                         </div>
-                        
-                        <div v-else class="border-t pt-4 mt-2 text-center text-sm text-jp-muted flex flex-col items-center gap-2 bg-gray-50 rounded-xl p-4 border border-gray-100">
-                            <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 mb-1">
-                                <i class="fa-solid fa-lock"></i>
-                            </div>
-                            <p>還原資料或重置行程等進階功能</p>
-                            <p class="font-bold">請先點擊右上角登入「管理員」</p>
-                        </div>
-
                     </div>
                 </div>
             </div>
@@ -586,19 +577,17 @@ createApp({
         const saveStatus = ref(false);
         let saveTimeout = null;
 
-        // 編輯天數 Modal 狀態
         const isEditingDay = ref(false);
         const isAddingNewDay = ref(false);
         const editDayForm = ref({ date: '', title: '', fullDate: '', dayHotel: '' });
         let editingDayIndex = -1;
 
-        // 編輯節點 Modal 狀態
         const isEditingItem = ref(false);
         const editItemIsNew = ref(true);
         const editItemForm = ref({ time: '10:00', title: '', desc: '', type: 'sightseeing' });
         let editingItemIndex = -1;
 
-        const storageKey = 'tabinote_app_v9_clean';
+        const storageKey = 'tabinote_app_v10_persistent';
 
         onMounted(() => {
             const savedData = localStorage.getItem(storageKey);
@@ -733,7 +722,6 @@ createApp({
             if (confirm('確定刪除此筆記帳？')) expenses.value.splice(idx, 1);
         };
 
-        // --- Day management (完全獨立控制) ---
         const openAddDayModal = () => {
             isAddingNewDay.value = true;
             editDayForm.value = { date: `Day ${itineraryDays.value.length + 1}`, title: '精采主題', fullDate: '2026年新的一天', dayHotel: '指定飯店' };
@@ -782,7 +770,6 @@ createApp({
             }
         };
 
-        // --- Item management (完全獨立控制) ---
         const openAddItemModal = () => {
             editItemIsNew.value = true;
             editItemForm.value = { time: '10:00', title: '', desc: '', type: 'sightseeing' };
@@ -811,7 +798,6 @@ createApp({
                 }
             }
 
-            // 依時間排序
             dayObj.items.sort((a, b) => a.time.localeCompare(b.time));
             isEditingItem.value = false;
             showToast('行程節點已儲存');
