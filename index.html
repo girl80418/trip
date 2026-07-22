@@ -84,7 +84,7 @@
                 </div>
                 <Transition name="fade">
                     <span v-if="saveStatus" class="text-[10px] text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded-full mt-1">
-                        <i class="fa-solid fa-cloud-check mr-1"></i>已自動儲存
+                        <i class="fa-solid fa-cloud-check mr-1"></i>已即時同步儲存
                     </span>
                 </Transition>
             </div>
@@ -145,8 +145,8 @@
                                 <div class="flex justify-between items-start">
                                     <div class="font-mono text-sm font-bold text-jp-primary">{{ item.time }}</div>
                                     <div class="flex gap-2" v-if="isAdmin">
-                                        <button @click="editItem(idx)" class="text-gray-400 hover:text-jp-primary p-1"><i class="fa-solid fa-pen-to-square"></i></button>
-                                        <button @click="deleteItem(idx)" class="text-gray-400 hover:text-red-500 p-1"><i class="fa-solid fa-trash"></i></button>
+                                        <button @click="editItem(idx)" class="text-gray-400 hover:text-jp-primary p-1" title="修改"><i class="fa-solid fa-pen-to-square"></i></button>
+                                        <button @click="deleteItem(idx)" class="text-gray-400 hover:text-red-500 p-1" title="刪除"><i class="fa-solid fa-trash"></i></button>
                                     </div>
                                 </div>
                                 <h3 class="text-base font-bold text-jp-text mt-1">{{ item.title }}</h3>
@@ -281,7 +281,7 @@
                     <h2 class="text-lg font-bold text-jp-text mb-4 border-b pb-2"><i class="fa-solid fa-database mr-2 text-jp-accent"></i>資料管理與備份</h2>
                     
                     <div class="bg-yellow-50 text-yellow-800 p-3 rounded-xl text-xs mb-4 leading-relaxed border border-yellow-200">
-                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> 修改後建議點擊「匯出備份」下載 JSON 檔，保障您的手動修改永遠不遺失！
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> 系統已鎖定永久儲存通道。建議點擊下方按鈕匯出 JSON 備份！
                     </div>
 
                     <div class="space-y-4">
@@ -546,10 +546,7 @@ const defaultItinerary = [
     }
 ];
 
-const defaultJournal = `# 2026 東京夏日家族避暑之旅 🇯🇵
-
-這是一趟精心為家族老小規劃的 8 天 7 夜深度放鬆之旅。`;
-
+const defaultJournal = `# 2026 東京夏日家族避暑之旅 🇯🇵\n\n這是一趟精心為家族老小規劃的 8 天 7 夜深度放鬆之旅。`;
 const defaultExpenses = [
     { id: 1, title: '成田機場專車接機', amount: 35000, payment: '信用卡', category: '交通票券', payer: '我' },
     { id: 2, title: '敘敘苑燒肉晚餐', amount: 28000, payment: '現金', category: '美食餐飲', payer: '二姊' }
@@ -587,15 +584,17 @@ createApp({
         const editItemForm = ref({ time: '10:00', title: '', desc: '', type: 'sightseeing' });
         let editingItemIndex = -1;
 
-        const storageKey = 'tabinote_app_v10_persistent';
+        // ** 永久鎖定的唯一儲存鍵：tabinote_permanent_storage_v1 **
+        const storageKey = 'tabinote_permanent_storage_v1';
 
         onMounted(() => {
             const savedData = localStorage.getItem(storageKey);
             if (savedData) {
                 try {
                     const parsed = JSON.parse(savedData);
-                    itineraryDays.value = parsed.itinerary || defaultItinerary;
-                    journalContent.value = parsed.journal || defaultJournal;
+                    // 智慧合併：優先採用使用者儲存過的資料
+                    itineraryDays.value = (parsed.itinerary && parsed.itinerary.length > 0) ? parsed.itinerary : defaultItinerary;
+                    journalContent.value = parsed.journal !== undefined ? parsed.journal : defaultJournal;
                     journalPhotos.value = parsed.photos || [];
                     expenses.value = parsed.expenses || defaultExpenses;
                 } catch (e) {
@@ -631,6 +630,7 @@ createApp({
             }
         };
 
+        // 即時監控並自動永久儲存
         watch([itineraryDays, journalContent, journalPhotos, expenses], () => {
             saveDataToStorage();
         }, { deep: true });
@@ -693,13 +693,17 @@ createApp({
             reader.onload = (event) => {
                 journalPhotos.value.push({ url: event.target.result, name: file.name });
                 showToast('相片上傳成功');
+                saveDataToStorage();
             };
             reader.readAsDataURL(file);
             e.target.value = '';
         };
 
         const deletePhoto = (idx) => {
-            if (confirm('確定刪除此相片？')) journalPhotos.value.splice(idx, 1);
+            if (confirm('確定刪除此相片？')) {
+                journalPhotos.value.splice(idx, 1);
+                saveDataToStorage();
+            }
         };
 
         const previewPhoto = (photo) => {
@@ -716,10 +720,14 @@ createApp({
             expenses.value.unshift({ ...newExpense.value });
             showExpenseModal.value = false;
             showToast('記帳成功');
+            saveDataToStorage();
         };
 
         const deleteExpense = (idx) => {
-            if (confirm('確定刪除此筆記帳？')) expenses.value.splice(idx, 1);
+            if (confirm('確定刪除此筆記帳？')) {
+                expenses.value.splice(idx, 1);
+                saveDataToStorage();
+            }
         };
 
         const openAddDayModal = () => {
@@ -758,6 +766,7 @@ createApp({
             }
             isEditingDay.value = false;
             showToast('天數資料已儲存');
+            saveDataToStorage();
         };
 
         const deleteDay = (idx) => {
@@ -767,6 +776,7 @@ createApp({
                     selectedDayIdx.value = Math.max(0, itineraryDays.value.length - 1);
                 }
                 showToast('已刪除');
+                saveDataToStorage();
             }
         };
 
@@ -801,12 +811,14 @@ createApp({
             dayObj.items.sort((a, b) => a.time.localeCompare(b.time));
             isEditingItem.value = false;
             showToast('行程節點已儲存');
+            saveDataToStorage();
         };
 
         const deleteItem = (idx) => {
             if (confirm('確定刪除此行程節點？')) {
                 itineraryDays.value[selectedDayIdx.value].items.splice(idx, 1);
                 showToast('已刪除');
+                saveDataToStorage();
             }
         };
 
@@ -842,13 +854,17 @@ createApp({
                     if (imported.photos) journalPhotos.value = imported.photos;
                     if (imported.expenses) expenses.value = imported.expenses;
                     showToast('還原成功');
+                    saveDataToStorage();
                 } catch (err) { alert('格式錯誤'); }
             };
             reader.readAsText(file);
         };
 
         const resetToDefault = () => {
-            if (confirm('確定重置所有資料？')) initDefaults();
+            if (confirm('確定重置所有資料？')) {
+                initDefaults();
+                showToast('已重置');
+            }
         };
 
         return {
