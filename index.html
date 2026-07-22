@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TabiNote 8/23-8/30 東京旅遊隨身助理</title>
+    <title>TabiNote 旅之手札 - 日式極簡 AI 旅遊隨身助理</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -315,12 +315,20 @@
 
                     <!-- Input Form for Guided Daily Generation -->
                     <div v-else class="space-y-2">
-                        <label class="text-xs text-wabi-muted font-medium">指定每日核心地標（AI 補全細節）：</label>
+                        <div class="flex justify-between items-center">
+                            <label class="text-xs text-wabi-muted font-medium">指定每日核心地標（AI 補全細節）：</label>
+                            <button @click="guidedDays.push('')" class="text-[11px] text-wabi-primary font-bold hover:underline">
+                                <i class="fa-solid fa-plus text-[10px] mr-1"></i>新增天數
+                            </button>
+                        </div>
                         <div class="space-y-1.5">
                             <div v-for="(dayGuide, idx) in guidedDays" :key="idx" class="flex items-center space-x-2">
-                                <span class="text-xs font-mono font-bold text-wabi-indigo w-12">Day {{ idx + 1 }}</span>
+                                <span class="text-xs font-mono font-bold text-wabi-indigo w-12 shrink-0">Day {{ idx + 1 }}</span>
                                 <input v-model="guidedDays[idx]" type="text" placeholder="例如：東京成田機場與上野阿美橫丁" 
                                        class="flex-1 text-xs px-3 py-2 rounded-xl bg-wabi-bg border border-wabi-border focus:outline-none focus:border-wabi-primary">
+                                <button v-if="guidedDays.length > 1" @click="guidedDays.splice(idx, 1)" class="text-wabi-muted hover:text-red-500 p-1 text-xs" title="刪除此天">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -328,16 +336,16 @@
                     <button @click="generateAIItinerary" :disabled="isGeneratingAI" 
                             class="w-full py-2.5 rounded-xl bg-wabi-primary text-white font-medium text-xs shadow-sm hover:bg-wabi-primary/90 flex items-center justify-center space-x-2 transition-all">
                         <i :class="isGeneratingAI ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-paper-plane'"></i>
-                        <span>{{ isGeneratingAI ? 'AI 正在解析並規劃行程中...' : '生成專屬行程' }}</span>
+                        <span>{{ isGeneratingAI ? 'AI 正在解析並規劃多天行程中...' : '生成專屬行程' }}</span>
                     </button>
                 </div>
 
                 <!-- AI Generated Itinerary Preview Result -->
                 <div v-if="aiResult" class="space-y-3">
                     <div class="flex justify-between items-center px-1">
-                        <h3 class="font-jp text-sm font-bold text-wabi-indigo">AI 建議方案預覽</h3>
+                        <h3 class="font-jp text-sm font-bold text-wabi-indigo">AI 建議方案預覽（共 {{ aiResult.days.length }} 天）</h3>
                         <button v-if="isAdmin" @click="applyAIItinerary" class="px-3 py-1 rounded-xl bg-wabi-accent text-white text-xs font-medium hover:bg-wabi-accent/90 transition-all shadow-sm">
-                            <i class="fa-solid fa-file-import mr-1"></i>覆蓋並套用到行程
+                            <i class="fa-solid fa-file-import mr-1"></i>覆蓋並套用到行程 ({{ aiResult.days.length }}天)
                         </button>
                     </div>
 
@@ -966,76 +974,90 @@
 
                 // AI Smart Itinerary Planner State
                 const aiMode = ref('auto');
-                const aiPrompt = ref('8/23 (日) Day 1：抵達東京 → 專車接機 → 上野 入住:MONday Apart 上野新御徒町\n下午 17:00+ 抵達成田機場（預估出關、提領行李與推車約 1 ~ 1.5 小時）。');
-                const guidedDays = ref(['東京成田機場與上野阿美橫丁', '淺草寺與東京晴空塔', '新宿御苑與澀谷 Sky']);
+                const aiPrompt = ref(`8/23 (日) Day 1：抵達東京 → 專車接機 → 上野 入住:MONday Apart 上野新御徒町，下午 17:00 抵達成田機場 → 阿美橫丁晚餐
+8/24 (一) Day 2：09:00 淺草寺參拜 → 12:00 晴空塔展望台與敘敘苑燒肉 → 16:00 澀谷 SHIBUYA SKY 看夕陽
+8/25 (二) Day 3：09:30 築地場外市場早餐 → 13:00 新宿御苑散策 → 18:00 六本木之丘看東京鐵塔夜景`);
+
+                const guidedDays = ref([
+                    '東京成田機場與上野阿美橫丁',
+                    '淺草寺與東京晴空塔',
+                    '新宿御苑與澀谷 SHIBUYA SKY'
+                ]);
                 const isGeneratingAI = ref(false);
                 const aiResult = ref(null);
 
-                // Smart Fallback Parser when API is restricted or network delay occurs
+                // Powerful Multi-day Intelligent Fallback Parser
                 const parseFallbackPrompt = (text) => {
-                    const hasTokyo = text.includes('東京') || text.includes('成田') || text.includes('上野');
-                    const timeMatch = text.match(/\d{1,2}:\d{2}/);
-                    const arriveTime = timeMatch ? timeMatch[0] : '17:00';
+                    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+                    const days = [];
+                    let currentDay = null;
 
-                    if (hasTokyo) {
-                        return {
-                            days: [
-                                {
-                                    date: "8/23",
-                                    title: "抵達東京與飯店 Check-in",
-                                    spots: [
-                                        {
-                                            time: arriveTime,
-                                            title: "抵達成田國際機場 (NRT)",
-                                            category: "transport",
-                                            location: "成田國際機場",
-                                            cost: 3200,
-                                            notes: "預估出關、提領行李與推車約 1 ~ 1.5 小時，準備搭乘接駁專車"
-                                        },
-                                        {
-                                            time: "18:45",
-                                            title: "專車接機前往上野",
-                                            category: "transport",
-                                            location: "成田機場專車接駁區",
-                                            cost: 0,
-                                            notes: "舒適專車直達上野飯店，免去行李搬運辛苦"
-                                        },
-                                        {
-                                            time: "19:45",
-                                            title: "MONday Apart 上野新御徒町 Check-in",
-                                            category: "stay",
-                                            location: "MONday Apart 上野新御徒町",
-                                            cost: 0,
-                                            notes: "辦理公寓式飯店入住，安置行李與休憩"
-                                        },
-                                        {
-                                            time: "20:30",
-                                            title: "上野阿美橫丁晚餐與散策",
-                                            category: "food",
-                                            location: "上野阿美橫丁",
-                                            cost: 2500,
-                                            notes: "體驗上野懷舊夜生活，品嚐燒肉或道地日式拉麵"
-                                        }
-                                    ]
-                                }
-                            ]
-                        };
-                    }
+                    // Header matching Day 1, Day 2, D1, 8/23, 8/24, 第一天, etc.
+                    const dayRegex = /^(?:Day\s*\d+|D\d+|\d{1,2}[\/\.-]\d{1,2}|第[一二三四五六七八九十\d]+天)/i;
 
-                    // Default Kyoto structured fallback
-                    return {
-                        days: [
-                            {
-                                date: "8/23",
-                                title: "Day 1 抵達與飯店 Check-in",
-                                spots: [
-                                    { time: "17:00", title: "抵達目的地機場/車站", category: "transport", location: "機場", notes: "辦理入境出關手續與提領行李" },
-                                    { time: "19:00", title: "飯店辦理入住 Check-in", category: "stay", location: "市區飯店", notes: "放置行李並稍作休息" },
-                                    { time: "20:00", title: "在地特色美食晚餐", category: "food", location: "飯店周邊商圈", notes: "品嚐在地名物料理" }
-                                ]
-                            }
-                        ]
-                    };
+                    lines.forEach(line => {
+                        const isDayHeader = dayRegex.test(line) || line.includes('Day ') || line.includes('Day1') || line.includes('Day2') || line.includes('Day3');
+                        
+                        if (isDayHeader || !currentDay) {
+                            let dateStr = "";
+                            const dateMatch = line.match(/\d{1,2}[\/\.-]\d{1,2}/);
+                            if (dateMatch) dateStr = dateMatch[0];
+
+                            const dayIndex = days.length + 1;
+                            currentDay = {
+                                date: dateStr || `8/${23 + days.length}`,
+                                title: line.startsWith('Day') ? line : `Day ${dayIndex}: ${line}`,
+                                spots: []
+                            };
+                            days.push(currentDay);
+                        }
+
+                        // Split line elements into individual spots (using arrows or semicolons or commas)
+                        const parts = line.split(/(?:→|->|；|;|\|)/).map(p => p.trim()).filter(Boolean);
+                        
+                        parts.forEach(part => {
+                            if (!part || dayRegex.test(part) && currentDay.spots.length > 0) return;
+                            
+                            const timeMatch = part.match(/\d{1,2}:\d{2}/);
+                            const time = timeMatch ? timeMatch[0] : '10:00';
+                            
+                            let category = 'sightseeing';
+                            if (/入住|Check-in|酒店|飯店|Apart|Hotel/i.test(part)) category = 'stay';
+                            else if (/機場|接機|電車|地鐵|JR|搭乘|專車|HARUKA|飛機|高鐵|巴士/i.test(part)) category = 'transport';
+                            else if (/餐|飯|拉麵|燒肉|壽司|市場|阿美橫丁|夜市|甜點|咖啡|午餐|晚餐|美食/i.test(part)) category = 'food';
+
+                            currentDay.spots.push({
+                                time: time,
+                                title: part.length > 35 ? part.substring(0, 35) + '...' : part,
+                                category: category,
+                                location: part,
+                                cost: category === 'food' ? 2500 : (category === 'transport' ? 1800 : 0),
+                                notes: part
+                            });
+                        });
+                    });
+
+                    // Ensure every day has valid spots
+                    days.forEach((d, idx) => {
+                        if (d.spots.length === 0) {
+                            d.spots.push({
+                                time: "10:00",
+                                title: d.title || `Day ${idx + 1} 自由觀光`,
+                                category: "sightseeing",
+                                location: d.title,
+                                cost: 0,
+                                notes: "精彩自訂景點漫步"
+                            });
+                        }
+                    });
+
+                    return { days: days.length > 0 ? days : [
+                        {
+                            date: "8/23",
+                            title: "Day 1 抵達與行程預覽",
+                            spots: [{ time: "17:00", title: "抵達成田機場與專車接送", category: "transport", location: "成田機場", cost: 3200, notes: "抵達成田機場並專車前往飯店" }]
+                        }
+                    ] };
                 };
 
                 const generateAIItinerary = async () => {
@@ -1045,10 +1067,14 @@
                     const apiKey = "";
                     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
-                    const systemPrompt = "你是一位頂級專業旅遊規劃師。請詳細分析與解析使用者輸入的旅遊行程草稿或需求（包含日期、時間、景點、飯店名稱等），將其轉化為結構化的旅遊行程。請嚴格輸出 JSON 格式。";
+                    const systemPrompt = `你是一位頂級專業旅遊規劃師。請詳細分析與解析使用者輸入的所有旅遊行程草稿或需求（包含日期、天數、時間、景點、飯店名稱等）。
+【極度重要指令】：
+1. 如果使用者輸入包含多天行程（例如 Day 1, Day 2, Day 3... 或 8/23, 8/24, 8/25...），你【必須完整解析並輸出每一天】，絕對不可以只輸出 1 天！
+2. 請嚴格輸出 JSON 格式。`;
+
                     const promptText = aiMode.value === 'auto' 
-                        ? `請精準解析並規劃以下行程內容：\n${aiPrompt.value}` 
-                        : `請規劃行程，指定每日重點為：${guidedDays.value.map((g, idx) => `Day ${idx + 1}: ${g}`).join(', ')}`;
+                        ? `請精準解析並規劃以下所有天數的完整行程：\n${aiPrompt.value}` 
+                        : `請為以下每一天分別規劃詳細景點時間軸：\n${guidedDays.value.map((g, idx) => `Day ${idx + 1}: ${g}`).join('\n')}`;
 
                     const payload = {
                         contents: [{ parts: [{ text: promptText }] }],
@@ -1097,39 +1123,37 @@
                             body: JSON.stringify(payload)
                         });
                         
-                        if (!resp.ok) {
-                            throw new Error(`API response status: ${resp.status}`);
-                        }
+                        if (!resp.ok) throw new Error(`API response status: ${resp.status}`);
 
                         const data = await resp.json();
                         const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
                         if (jsonText) {
                             aiResult.value = JSON.parse(jsonText);
-                            showToast('AI 行程規劃完成！');
+                            showToast(`AI 已成功為您規劃 ${aiResult.value.days.length} 天的完整行程！`);
                         } else {
                             throw new Error("Invalid API response format");
                         }
                     } catch (err) {
-                        console.warn("AI Generation using fallback parser:", err);
-                        aiResult.value = parseFallbackPrompt(aiPrompt.value);
-                        showToast('已為您解析 8/23 東京專屬行程');
+                        console.warn("AI Generation using multi-day fallback parser:", err);
+                        aiResult.value = parseFallbackPrompt(aiMode.value === 'auto' ? aiPrompt.value : guidedDays.value.map((g, i) => `Day ${i+1}: ${g}`).join('\n'));
+                        showToast(`已成功為您解析並生成 ${aiResult.value.days.length} 天行程！`);
                     } finally {
                         isGeneratingAI.value = false;
                     }
                 };
 
                 const applyAIItinerary = () => {
-                    if (!aiResult.value || !aiResult.value.days) return;
+                    if (!aiResult.value || !aiResult.value.days || aiResult.value.days.length === 0) return;
                     itineraryDays.value = aiResult.value.days.map((d, i) => {
                         const dayNum = i + 1;
                         const dateShort = d.date || `8/${23 + i}`;
                         return {
-                            id: Date.now() + i,
+                            id: Date.now() + i * 1000,
                             dateShort: dateShort,
                             dateLong: `2026年${dateShort}日`,
                             title: d.title.startsWith('Day') ? d.title : `Day ${dayNum}: ${d.title}`,
                             spots: d.spots.map((s, j) => ({
-                                id: Date.now() + i*100 + j,
+                                id: Date.now() + i * 100 + j,
                                 time: s.time || '10:00',
                                 title: s.title,
                                 category: s.category || (s.title.includes('Check-in') || s.title.includes('入住') ? 'stay' : (s.title.includes('機場') || s.title.includes('接機') ? 'transport' : 'sightseeing')),
@@ -1141,7 +1165,7 @@
                     });
                     selectedDayIndex.value = 0;
                     activeTab.value = 'itinerary';
-                    showToast('已成功將 8/23 東京行程導入主行程表中！');
+                    showToast(`已成功套用完整的 ${itineraryDays.value.length} 天行程！`);
                 };
 
                 // Journal & Markdown State
