@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TabiNote 旅之手札 | 簡約日系行程與記帳</title>
+    <title>TabiNote 旅之手札 | 雲端同步版</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Vue 3 -->
@@ -13,6 +13,16 @@
     <!-- SheetJS (Excel Parsing) -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        window.firebaseModules = { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, doc, setDoc, getDoc, onSnapshot };
+        window.dispatchEvent(new Event('firebase-loaded'));
+    </script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -75,7 +85,7 @@
         <header class="bg-jp-bg sticky top-0 z-40 px-5 pt-6 pb-3 flex justify-between items-center border-b border-jp-border">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-compass text-jp-accent text-xl"></i>
-                <h1 class="text-lg font-bold text-jp-text tracking-wider">旅之手札 <span class="text-xs font-normal text-jp-muted ml-1">Tokyo '26</span></h1>
+                <h1 class="text-lg font-bold text-jp-text tracking-wider">旅之手札 <span class="text-xs font-normal text-jp-muted ml-1">雲端同步版</span></h1>
             </div>
             <div class="flex flex-col items-end gap-1">
                 <div @click="toggleAdmin" class="cursor-pointer rounded-full px-3 py-1.5 flex items-center gap-2 transition-colors border shadow-sm" :class="isAdmin ? 'bg-jp-primary text-white border-jp-primary' : 'bg-white text-gray-500 border-gray-200'">
@@ -84,7 +94,7 @@
                 </div>
                 <Transition name="fade">
                     <span v-if="saveStatus" class="text-[10px] text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded-full mt-1">
-                        <i class="fa-solid fa-cloud-check mr-1"></i>已即時同步儲存
+                        <i class="fa-solid fa-cloud-arrow-up mr-1"></i>雲端同步中...
                     </span>
                 </Transition>
             </div>
@@ -96,7 +106,6 @@
             <!-- Tab: Itinerary (行程表) -->
             <div v-show="currentTab === 'itinerary'" class="p-4 space-y-4">
                 
-                <!-- 管理員專屬操作列 -->
                 <div v-if="isAdmin" class="bg-jp-primary/10 border border-jp-primary/30 rounded-xl p-3 flex justify-between items-center">
                     <span class="text-xs font-bold text-jp-primary"><i class="fa-solid fa-screwdriver-wrench mr-1"></i>管理員模式已啟用</span>
                     <button @click="openAddDayModal" class="bg-jp-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm">
@@ -278,25 +287,20 @@
             <!-- Tab: Settings / Export -->
             <div v-show="currentTab === 'settings'" class="p-4 space-y-4">
                 <div class="bg-jp-card rounded-2xl shadow-sm border border-jp-border p-5">
-                    <h2 class="text-lg font-bold text-jp-text mb-4 border-b pb-2"><i class="fa-solid fa-database mr-2 text-jp-accent"></i>資料管理與備份</h2>
+                    <h2 class="text-lg font-bold text-jp-text mb-4 border-b pb-2"><i class="fa-solid fa-database mr-2 text-jp-accent"></i>雲端資料管理</h2>
                     
-                    <div class="bg-yellow-50 text-yellow-800 p-3 rounded-xl text-xs mb-4 leading-relaxed border border-yellow-200">
-                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> 系統已鎖定永久儲存通道。建議點擊下方按鈕匯出 JSON 備份！
+                    <div class="bg-emerald-50 text-emerald-800 p-3 rounded-xl text-xs mb-4 leading-relaxed border border-emerald-200">
+                        <i class="fa-solid fa-cloud-arrow-up mr-1"></i> 您已連線至雲端資料庫。所有親友打開此網頁都會同步顯示最新修改！
                     </div>
 
                     <div class="space-y-4">
                         <button @click="exportJSON" class="w-full bg-jp-primary text-white py-3 rounded-xl font-medium flex items-center justify-center gap-2 shadow-sm">
-                            <i class="fa-solid fa-download"></i> 匯出完整備份 (JSON)
+                            <i class="fa-solid fa-download"></i> 匯出備份 (JSON)
                         </button>
 
                         <div class="border-t pt-4 mt-2 space-y-4">
-                            <label class="w-full bg-gray-100 text-jp-text py-3 rounded-xl font-medium flex items-center justify-center gap-2 cursor-pointer border border-gray-200">
-                                <i class="fa-solid fa-upload"></i> 還原備份 (JSON)
-                                <input type="file" class="hidden" accept=".json" @change="importJSON">
-                            </label>
-
-                            <button v-if="isAdmin" @click="resetToDefault" class="w-full bg-red-50 text-red-600 py-3 rounded-xl font-medium flex items-center justify-center gap-2 border border-red-100 mt-2">
-                                <i class="fa-solid fa-rotate-left"></i> 重置為預設初始資料
+                            <button v-if="isAdmin" @click="resetToDefault" class="w-full bg-red-50 text-red-600 py-3 rounded-xl font-medium flex items-center justify-center gap-2 border border-red-100">
+                                <i class="fa-solid fa-rotate-left"></i> 重置為預設雲端初始行程
                             </button>
                         </div>
                     </div>
@@ -468,8 +472,6 @@
 </div>
 
 <script>
-const { createApp, ref, computed, onMounted, watch } = Vue;
-
 const defaultItinerary = [
     {
         date: "8/23", title: "抵達東京 / 阿美橫町", fullDate: "8/23 (日) Day 1：抵達東京 → 專車接機",
@@ -540,7 +542,7 @@ const defaultItinerary = [
         date: "8/30", title: "賦歸 / 前往機場", fullDate: "8/30 (日) Day 8: 滿載而歸",
         dayHotel: "甜蜜溫暖的家 🏠", 
         items: [
-            { time: "09:00", title: "辦理退房", desc: "確認行李、戰利品皆已打包。", type: "hotel" },
+            { time: "09:00", title: "辦理退房", desc: "確認行李, 戰利品皆已打包。", type: "hotel" },
             { time: "09:30", title: "前往羽田/成田機場", desc: "搭乘特急列車前往機場準備搭機返台。", type: "transport" }
         ]
     }
@@ -552,332 +554,343 @@ const defaultExpenses = [
     { id: 2, title: '敘敘苑燒肉晚餐', amount: 28000, payment: '現金', category: '美食餐飲', payer: '二姊' }
 ];
 
-createApp({
-    setup() {
-        const currentTab = ref('itinerary');
-        const isAdmin = ref(false); 
-        const showAdminLogin = ref(false);
-        const adminPassword = ref('');
+window.addEventListener('firebase-loaded', () => {
+    const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, getFirestore, doc, setDoc, getDoc, onSnapshot } = window.firebaseModules;
+    const { createApp, ref, computed, onMounted, watch } = Vue;
 
-        const itineraryDays = ref([]);
-        const selectedDayIdx = ref(0);
-        
-        const journalContent = ref('');
-        const journalPhotos = ref([]);
-        const previewPhotoUrl = ref(null);
+    createApp({
+        setup() {
+            const currentTab = ref('itinerary');
+            const isAdmin = ref(false); 
+            const showAdminLogin = ref(false);
+            const adminPassword = ref('');
 
-        const expenses = ref([]);
-        const showExpenseModal = ref(false);
-        const newExpense = ref({ title: '', amount: null, payment: '現金', category: '美食餐飲', payer: '' });
+            const itineraryDays = ref([]);
+            const selectedDayIdx = ref(0);
+            
+            const journalContent = ref('');
+            const journalPhotos = ref([]);
+            const previewPhotoUrl = ref(null);
 
-        const toastMessage = ref('');
-        const saveStatus = ref(false);
-        let saveTimeout = null;
+            const expenses = ref([]);
+            const showExpenseModal = ref(false);
+            const newExpense = ref({ title: '', amount: null, payment: '現金', category: '美食餐飲', payer: '' });
 
-        const isEditingDay = ref(false);
-        const isAddingNewDay = ref(false);
-        const editDayForm = ref({ date: '', title: '', fullDate: '', dayHotel: '' });
-        let editingDayIndex = -1;
+            const toastMessage = ref('');
+            const saveStatus = ref(false);
+            let isRemoteUpdate = false;
 
-        const isEditingItem = ref(false);
-        const editItemIsNew = ref(true);
-        const editItemForm = ref({ time: '10:00', title: '', desc: '', type: 'sightseeing' });
-        let editingItemIndex = -1;
+            const isEditingDay = ref(false);
+            const isAddingNewDay = ref(false);
+            const editDayForm = ref({ date: '', title: '', fullDate: '', dayHotel: '' });
+            let editingDayIndex = -1;
 
-        // ** 永久鎖定的唯一儲存鍵：tabinote_permanent_storage_v1 **
-        const storageKey = 'tabinote_permanent_storage_v1';
+            const isEditingItem = ref(false);
+            const editItemIsNew = ref(true);
+            const editItemForm = ref({ time: '10:00', title: '', desc: '', type: 'sightseeing' });
+            let editingItemIndex = -1;
 
-        onMounted(() => {
-            const savedData = localStorage.getItem(storageKey);
-            if (savedData) {
+            // --- Firebase 雲端初始化與即時監聽 ---
+            let db = null;
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'travel-app-2026';
+            const docRefPath = ['artifacts', appId, 'public', 'data', 'travel_main_data'];
+
+            onMounted(async () => {
                 try {
-                    const parsed = JSON.parse(savedData);
-                    // 智慧合併：優先採用使用者儲存過的資料
-                    itineraryDays.value = (parsed.itinerary && parsed.itinerary.length > 0) ? parsed.itinerary : defaultItinerary;
-                    journalContent.value = parsed.journal !== undefined ? parsed.journal : defaultJournal;
-                    journalPhotos.value = parsed.photos || [];
-                    expenses.value = parsed.expenses || defaultExpenses;
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    const app = initializeApp(firebaseConfig);
+                    const auth = getAuth(app);
+                    db = getFirestore(app);
+
+                    await signInAnonymously(auth);
+
+                    const docRef = doc(db, ...docRefPath);
+                    const snap = await getDoc(docRef);
+
+                    if (snap.exists()) {
+                        const cloudData = snap.data();
+                        itineraryDays.value = cloudData.itinerary || defaultItinerary;
+                        journalContent.value = cloudData.journal !== undefined ? cloudData.journal : defaultJournal;
+                        journalPhotos.value = cloudData.photos || [];
+                        expenses.value = cloudData.expenses || defaultExpenses;
+                    } else {
+                        // 初始化預設資料至雲端
+                        itineraryDays.value = JSON.parse(JSON.stringify(defaultItinerary));
+                        journalContent.value = defaultJournal;
+                        journalPhotos.value = [];
+                        expenses.value = JSON.parse(JSON.stringify(defaultExpenses));
+                        await setDoc(docRef, {
+                            itinerary: itineraryDays.value,
+                            journal: journalContent.value,
+                            photos: journalPhotos.value,
+                            expenses: expenses.value
+                        });
+                    }
+
+                    // 雲端即時監聽 (Realtime listener)
+                    onSnapshot(docRef, (docSnap) => {
+                        if (docSnap.exists() && !isRemoteUpdate) {
+                            const remoteData = docSnap.data();
+                            isRemoteUpdate = true;
+                            if (remoteData.itinerary) itineraryDays.value = remoteData.itinerary;
+                            if (remoteData.journal !== undefined) journalContent.value = remoteData.journal;
+                            if (remoteData.photos) journalPhotos.value = remoteData.photos;
+                            if (remoteData.expenses) expenses.value = remoteData.expenses;
+                            setTimeout(() => { isRemoteUpdate = false; }, 300);
+                        }
+                    }, (error) => {
+                        console.error("Cloud sync error:", error);
+                    });
+
                 } catch (e) {
-                    initDefaults();
+                    console.error("Firebase init failed, fallback to local:", e);
+                    itineraryDays.value = JSON.parse(JSON.stringify(defaultItinerary));
+                    journalContent.value = defaultJournal;
+                    expenses.value = JSON.parse(JSON.stringify(defaultExpenses));
                 }
-            } else {
-                initDefaults();
-            }
-        });
+            });
 
-        const initDefaults = () => {
-            itineraryDays.value = JSON.parse(JSON.stringify(defaultItinerary));
-            journalContent.value = defaultJournal;
-            journalPhotos.value = [];
-            expenses.value = JSON.parse(JSON.stringify(defaultExpenses));
-            saveDataToStorage();
-        };
-
-        const saveDataToStorage = () => {
-            try {
-                const data = {
-                    itinerary: itineraryDays.value,
-                    journal: journalContent.value,
-                    photos: journalPhotos.value,
-                    expenses: expenses.value
-                };
-                localStorage.setItem(storageKey, JSON.stringify(data));
-                saveStatus.value = true;
-                if(saveTimeout) clearTimeout(saveTimeout);
-                saveTimeout = setTimeout(() => { saveStatus.value = false; }, 2000);
-            } catch (e) {
-                console.error("Save failed:", e);
-            }
-        };
-
-        // 即時監控並自動永久儲存
-        watch([itineraryDays, journalContent, journalPhotos, expenses], () => {
-            saveDataToStorage();
-        }, { deep: true });
-
-        const activeDay = computed(() => {
-            if (!itineraryDays.value || itineraryDays.value.length === 0) return null;
-            if (selectedDayIdx.value >= itineraryDays.value.length) {
-                selectedDayIdx.value = 0;
-            }
-            return itineraryDays.value[selectedDayIdx.value];
-        });
-
-        const totalExpense = computed(() => expenses.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
-        const cashExpense = computed(() => expenses.value.filter(i => i.payment === '現金').reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
-        const cardExpense = computed(() => expenses.value.filter(i => i.payment === '信用卡').reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
-
-        const aiExpenseAnalysis = computed(() => {
-            if (expenses.value.length === 0) return "尚無足夠的記帳資料可供 AI 分析。";
-            return "目前財務結構健康，現金與信用卡搭配得宜！";
-        });
-
-        const toggleAdmin = () => {
-            if (isAdmin.value) {
-                isAdmin.value = false;
-                showToast('已登出，切換為訪客模式');
-            } else {
-                adminPassword.value = '';
-                showAdminLogin.value = true;
-            }
-        };
-
-        const loginAdmin = () => {
-            if (adminPassword.value === '2250') {
-                isAdmin.value = true;
-                showAdminLogin.value = false;
-                showToast('管理員權限已解鎖！');
-            } else {
-                alert('密碼錯誤 (正確密碼為 2250)');
-                adminPassword.value = '';
-            }
-        };
-
-        const showToast = (msg) => {
-            toastMessage.value = msg;
-            setTimeout(() => { toastMessage.value = ''; }, 3000);
-        };
-
-        const polishJournal = () => {
-            showToast('AI 正在潤飾筆記...');
-            setTimeout(() => {
-                journalContent.value += "\n\n> ✨ **AI 補充**：行程流暢，老少皆宜！";
-                showToast('潤飾完成！');
-            }, 800);
-        };
-
-        const uploadPhoto = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                journalPhotos.value.push({ url: event.target.result, name: file.name });
-                showToast('相片上傳成功');
-                saveDataToStorage();
-            };
-            reader.readAsDataURL(file);
-            e.target.value = '';
-        };
-
-        const deletePhoto = (idx) => {
-            if (confirm('確定刪除此相片？')) {
-                journalPhotos.value.splice(idx, 1);
-                saveDataToStorage();
-            }
-        };
-
-        const previewPhoto = (photo) => {
-            previewPhotoUrl.value = photo.url;
-        };
-
-        const openExpenseModal = () => {
-            newExpense.value = { title: '', amount: null, payment: '現金', category: '美食餐飲', payer: '我' };
-            showExpenseModal.value = true;
-        };
-
-        const saveExpense = () => {
-            if (!newExpense.value.title || !newExpense.value.amount) { alert('請填寫完整'); return; }
-            expenses.value.unshift({ ...newExpense.value });
-            showExpenseModal.value = false;
-            showToast('記帳成功');
-            saveDataToStorage();
-        };
-
-        const deleteExpense = (idx) => {
-            if (confirm('確定刪除此筆記帳？')) {
-                expenses.value.splice(idx, 1);
-                saveDataToStorage();
-            }
-        };
-
-        const openAddDayModal = () => {
-            isAddingNewDay.value = true;
-            editDayForm.value = { date: `Day ${itineraryDays.value.length + 1}`, title: '精采主題', fullDate: '2026年新的一天', dayHotel: '指定飯店' };
-            isEditingDay.value = true;
-        };
-
-        const editDayInfo = (idx) => {
-            isAddingNewDay.value = false;
-            editingDayIndex = idx;
-            const target = itineraryDays.value[idx];
-            editDayForm.value = { date: target.date, title: target.title, fullDate: target.fullDate, dayHotel: target.dayHotel || '' };
-            isEditingDay.value = true;
-        };
-
-        const saveDay = () => {
-            if (!editDayForm.value.date) { alert('請填寫日期'); return; }
-            if (isAddingNewDay.value) {
-                itineraryDays.value.push({
-                    date: editDayForm.value.date,
-                    title: editDayForm.value.title,
-                    fullDate: editDayForm.value.fullDate,
-                    dayHotel: editDayForm.value.dayHotel,
-                    items: []
-                });
-                selectedDayIdx.value = itineraryDays.value.length - 1;
-            } else {
-                const target = itineraryDays.value[editingDayIndex];
-                if (target) {
-                    target.date = editDayForm.value.date;
-                    target.title = editDayForm.value.title;
-                    target.fullDate = editDayForm.value.fullDate;
-                    target.dayHotel = editDayForm.value.dayHotel;
-                }
-            }
-            isEditingDay.value = false;
-            showToast('天數資料已儲存');
-            saveDataToStorage();
-        };
-
-        const deleteDay = (idx) => {
-            if (confirm(`確定刪除 ${itineraryDays.value[idx].date} 嗎？`)) {
-                itineraryDays.value.splice(idx, 1);
-                if (selectedDayIdx.value >= itineraryDays.value.length) {
-                    selectedDayIdx.value = Math.max(0, itineraryDays.value.length - 1);
-                }
-                showToast('已刪除');
-                saveDataToStorage();
-            }
-        };
-
-        const openAddItemModal = () => {
-            editItemIsNew.value = true;
-            editItemForm.value = { time: '10:00', title: '', desc: '', type: 'sightseeing' };
-            isEditingItem.value = true;
-        };
-
-        const editItem = (idx) => {
-            editItemIsNew.value = false;
-            editingItemIndex = idx;
-            const item = itineraryDays.value[selectedDayIdx.value].items[idx];
-            editItemForm.value = { time: item.time, title: item.title, desc: item.desc || '', type: item.type };
-            isEditingItem.value = true;
-        };
-
-        const saveItem = () => {
-            if (!editItemForm.value.title) { alert('請填寫標題'); return; }
-            const dayObj = itineraryDays.value[selectedDayIdx.value];
-            if (!dayObj) return;
-            if (!dayObj.items) dayObj.items = [];
-
-            if (editItemIsNew.value) {
-                dayObj.items.push({ ...editItemForm.value });
-            } else {
-                if (editingItemIndex >= 0 && dayObj.items[editingItemIndex]) {
-                    dayObj.items[editingItemIndex] = { ...editItemForm.value };
-                }
-            }
-
-            dayObj.items.sort((a, b) => a.time.localeCompare(b.time));
-            isEditingItem.value = false;
-            showToast('行程節點已儲存');
-            saveDataToStorage();
-        };
-
-        const deleteItem = (idx) => {
-            if (confirm('確定刪除此行程節點？')) {
-                itineraryDays.value[selectedDayIdx.value].items.splice(idx, 1);
-                showToast('已刪除');
-                saveDataToStorage();
-            }
-        };
-
-        const getTypeColor = (type) => {
-            const colors = { 'sightseeing': 'bg-teal-500', 'food': 'bg-orange-400', 'transport': 'bg-blue-400', 'hotel': 'bg-purple-500' };
-            return colors[type] || 'bg-gray-400';
-        };
-
-        const getTypeIcon = (type) => {
-            const icons = { 'sightseeing': 'fa-solid fa-camera', 'food': 'fa-solid fa-utensils', 'transport': 'fa-solid fa-train', 'hotel': 'fa-solid fa-bed' };
-            return icons[type] || 'fa-solid fa-location-dot';
-        };
-
-        const exportJSON = () => {
-            const backupData = { itinerary: itineraryDays.value, journal: journalContent.value, photos: journalPhotos.value, expenses: expenses.value };
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
-            const dlAnchorElem = document.createElement('a');
-            dlAnchorElem.setAttribute("href", dataStr);
-            dlAnchorElem.setAttribute("download", "tabinote_backup.json");
-            dlAnchorElem.click();
-            showToast('已匯出備份');
-        };
-
-        const importJSON = (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
+            // 自動同步至雲端資料庫
+            const syncToCloud = async () => {
+                if (!db || isRemoteUpdate) return;
                 try {
-                    const imported = JSON.parse(e.target.result);
-                    if (imported.itinerary) itineraryDays.value = imported.itinerary;
-                    if (imported.journal) journalContent.value = imported.journal;
-                    if (imported.photos) journalPhotos.value = imported.photos;
-                    if (imported.expenses) expenses.value = imported.expenses;
-                    showToast('還原成功');
-                    saveDataToStorage();
-                } catch (err) { alert('格式錯誤'); }
+                    saveStatus.value = true;
+                    const docRef = doc(db, ...docRefPath);
+                    await setDoc(docRef, {
+                        itinerary: itineraryDays.value,
+                        journal: journalContent.value,
+                        photos: journalPhotos.value,
+                        expenses: expenses.value
+                    });
+                    setTimeout(() => { saveStatus.value = false; }, 1500);
+                } catch (e) {
+                    console.error("Sync error:", e);
+                    saveStatus.value = false;
+                }
             };
-            reader.readAsText(file);
-        };
 
-        const resetToDefault = () => {
-            if (confirm('確定重置所有資料？')) {
-                initDefaults();
-                showToast('已重置');
-            }
-        };
+            watch([itineraryDays, journalContent, journalPhotos, expenses], () => {
+                syncToCloud();
+            }, { deep: true });
 
-        return {
-            currentTab, isAdmin, toggleAdmin, showAdminLogin, adminPassword, loginAdmin,
-            itineraryDays, selectedDayIdx, activeDay,
-            journalContent, journalPhotos, previewPhotoUrl, uploadPhoto, deletePhoto, previewPhoto, polishJournal,
-            expenses, totalExpense, cashExpense, cardExpense, aiExpenseAnalysis, showExpenseModal, newExpense, openExpenseModal, saveExpense, deleteExpense,
-            isEditingDay, isAddingNewDay, editDayForm, openAddDayModal, editDayInfo, saveDay, deleteDay,
-            isEditingItem, editItemIsNew, editItemForm, openAddItemModal, editItem, saveItem, deleteItem,
-            getTypeColor, getTypeIcon, toastMessage, saveStatus, exportJSON, importJSON, resetToDefault
-        };
-    }
-}).mount('#app');
+            const activeDay = computed(() => {
+                if (!itineraryDays.value || itineraryDays.value.length === 0) return null;
+                if (selectedDayIdx.value >= itineraryDays.value.length) {
+                    selectedDayIdx.value = 0;
+                }
+                return itineraryDays.value[selectedDayIdx.value];
+            });
+
+            const totalExpense = computed(() => expenses.value.reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
+            const cashExpense = computed(() => expenses.value.filter(i => i.payment === '現金').reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
+            const cardExpense = computed(() => expenses.value.filter(i => i.payment === '信用卡').reduce((sum, item) => sum + (Number(item.amount) || 0), 0));
+
+            const aiExpenseAnalysis = computed(() => {
+                if (expenses.value.length === 0) return "尚無足夠的記帳資料可供 AI 分析。";
+                return "目前財務結構健康，現金與信用卡搭配得宜！";
+            });
+
+            const toggleAdmin = () => {
+                if (isAdmin.value) {
+                    isAdmin.value = false;
+                    showToast('已登出，切換為訪客模式');
+                } else {
+                    adminPassword.value = '';
+                    showAdminLogin.value = true;
+                }
+            };
+
+            const loginAdmin = () => {
+                if (adminPassword.value === '2250') {
+                    isAdmin.value = true;
+                    showAdminLogin.value = false;
+                    showToast('管理員權限已解鎖！');
+                } else {
+                    alert('密碼錯誤 (正確密碼為 2250)');
+                    adminPassword.value = '';
+                }
+            };
+
+            const showToast = (msg) => {
+                toastMessage.value = msg;
+                setTimeout(() => { toastMessage.value = ''; }, 3000);
+            };
+
+            const polishJournal = () => {
+                showToast('AI 正在潤飾筆記...');
+                setTimeout(() => {
+                    journalContent.value += "\n\n> ✨ **AI 補充**：行程流暢，老少皆宜！";
+                    showToast('潤飾完成！');
+                }, 800);
+            };
+
+            const uploadPhoto = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    journalPhotos.value.push({ url: event.target.result, name: file.name });
+                    showToast('相片上傳成功');
+                };
+                reader.readAsDataURL(file);
+                e.target.value = '';
+            };
+
+            const deletePhoto = (idx) => {
+                if (confirm('確定刪除此相片？')) journalPhotos.value.splice(idx, 1);
+            };
+
+            const previewPhoto = (photo) => {
+                previewPhotoUrl.value = photo.url;
+            };
+
+            const openExpenseModal = () => {
+                newExpense.value = { title: '', amount: null, payment: '現金', category: '美食餐飲', payer: '我' };
+                showExpenseModal.value = true;
+            };
+
+            const saveExpense = () => {
+                if (!newExpense.value.title || !newExpense.value.amount) { alert('請填寫完整'); return; }
+                expenses.value.unshift({ ...newExpense.value });
+                showExpenseModal.value = false;
+                showToast('記帳成功');
+            };
+
+            const deleteExpense = (idx) => {
+                if (confirm('確定刪除此筆記帳？')) expenses.value.splice(idx, 1);
+            };
+
+            const openAddDayModal = () => {
+                isAddingNewDay.value = true;
+                editDayForm.value = { date: `Day ${itineraryDays.value.length + 1}`, title: '精采主題', fullDate: '2026年新的一天', dayHotel: '指定飯店' };
+                isEditingDay.value = true;
+            };
+
+            const editDayInfo = (idx) => {
+                isAddingNewDay.value = false;
+                editingDayIndex = idx;
+                const target = itineraryDays.value[idx];
+                editDayForm.value = { date: target.date, title: target.title, fullDate: target.fullDate, dayHotel: target.dayHotel || '' };
+                isEditingDay.value = true;
+            };
+
+            const saveDay = () => {
+                if (!editDayForm.value.date) { alert('請填寫日期'); return; }
+                if (isAddingNewDay.value) {
+                    itineraryDays.value.push({
+                        date: editDayForm.value.date,
+                        title: editDayForm.value.title,
+                        fullDate: editDayForm.value.fullDate,
+                        dayHotel: editDayForm.value.dayHotel,
+                        items: []
+                    });
+                    selectedDayIdx.value = itineraryDays.value.length - 1;
+                } else {
+                    const target = itineraryDays.value[editingDayIndex];
+                    if (target) {
+                        target.date = editDayForm.value.date;
+                        target.title = editDayForm.value.title;
+                        target.fullDate = editDayForm.value.fullDate;
+                        target.dayHotel = editDayForm.value.dayHotel;
+                    }
+                }
+                isEditingDay.value = false;
+                showToast('天數資料已儲存');
+            };
+
+            const deleteDay = (idx) => {
+                if (confirm(`確定刪除 ${itineraryDays.value[idx].date} 嗎？`)) {
+                    itineraryDays.value.splice(idx, 1);
+                    if (selectedDayIdx.value >= itineraryDays.value.length) {
+                        selectedDayIdx.value = Math.max(0, itineraryDays.value.length - 1);
+                    }
+                    showToast('已刪除');
+                }
+            };
+
+            const openAddItemModal = () => {
+                editItemIsNew.value = true;
+                editItemForm.value = { time: '10:00', title: '', desc: '', type: 'sightseeing' };
+                isEditingItem.value = true;
+            };
+
+            const editItem = (idx) => {
+                editItemIsNew.value = false;
+                editingItemIndex = idx;
+                const item = itineraryDays.value[selectedDayIdx.value].items[idx];
+                editItemForm.value = { time: item.time, title: item.title, desc: item.desc || '', type: item.type };
+                isEditingItem.value = true;
+            };
+
+            const saveItem = () => {
+                if (!editItemForm.value.title) { alert('請填寫標題'); return; }
+                const dayObj = itineraryDays.value[selectedDayIdx.value];
+                if (!dayObj) return;
+                if (!dayObj.items) dayObj.items = [];
+
+                if (editItemIsNew.value) {
+                    dayObj.items.push({ ...editItemForm.value });
+                } else {
+                    if (editingItemIndex >= 0 && dayObj.items[editingItemIndex]) {
+                        dayObj.items[editingItemIndex] = { ...editItemForm.value };
+                    }
+                }
+
+                dayObj.items.sort((a, b) => a.time.localeCompare(b.time));
+                isEditingItem.value = false;
+                showToast('行程節點已儲存');
+            };
+
+            const deleteItem = (idx) => {
+                if (confirm('確定刪除此行程節點？')) {
+                    itineraryDays.value[selectedDayIdx.value].items.splice(idx, 1);
+                    showToast('已刪除');
+                }
+            };
+
+            const getTypeColor = (type) => {
+                const colors = { 'sightseeing': 'bg-teal-500', 'food': 'bg-orange-400', 'transport': 'bg-blue-400', 'hotel': 'bg-purple-500' };
+                return colors[type] || 'bg-gray-400';
+            };
+
+            const getTypeIcon = (type) => {
+                const icons = { 'sightseeing': 'fa-solid fa-camera', 'food': 'fa-solid fa-utensils', 'transport': 'fa-solid fa-train', 'hotel': 'fa-solid fa-bed' };
+                return icons[type] || 'fa-solid fa-location-dot';
+            };
+
+            const exportJSON = () => {
+                const backupData = { itinerary: itineraryDays.value, journal: journalContent.value, photos: journalPhotos.value, expenses: expenses.value };
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
+                const dlAnchorElem = document.createElement('a');
+                dlAnchorElem.setAttribute("href", dataStr);
+                dlAnchorElem.setAttribute("download", "tabinote_backup.json");
+                dlAnchorElem.click();
+                showToast('已匯出備份');
+            };
+
+            const resetToDefault = async () => {
+                if (confirm('確定重置所有雲端資料？')) {
+                    itineraryDays.value = JSON.parse(JSON.stringify(defaultItinerary));
+                    journalContent.value = defaultJournal;
+                    journalPhotos.value = [];
+                    expenses.value = JSON.parse(JSON.stringify(defaultExpenses));
+                    await syncToCloud();
+                    showToast('雲端資料已重置');
+                }
+            };
+
+            return {
+                currentTab, isAdmin, toggleAdmin, showAdminLogin, adminPassword, loginAdmin,
+                itineraryDays, selectedDayIdx, activeDay,
+                journalContent, journalPhotos, previewPhotoUrl, uploadPhoto, deletePhoto, previewPhoto, polishJournal,
+                expenses, totalExpense, cashExpense, cardExpense, aiExpenseAnalysis, showExpenseModal, newExpense, openExpenseModal, saveExpense, deleteExpense,
+                isEditingDay, isAddingNewDay, editDayForm, openAddDayModal, editDayInfo, saveDay, deleteDay,
+                isEditingItem, editItemIsNew, editItemForm, openAddItemModal, editItem, saveItem, deleteItem,
+                getTypeColor, getTypeIcon, toastMessage, saveStatus, exportJSON, resetToDefault
+            };
+        }
+    }).mount('#app');
+});
 </script>
 
 </body>
